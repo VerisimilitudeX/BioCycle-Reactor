@@ -1,0 +1,143 @@
+\documentclass[10pt,twocolumn]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{hyperref}
+\setlength{\parskip}{6pt}
+\setlength{\parindent}{0pt}
+
+\begin{document}
+
+\title{\textbf{BioCycle: A Novel Biodiesel Reactor for Sustainable Waste Oil Recycling in Small and Mid-Sized Restaurants}}
+\author{Piyush Acharya, acharyapiyush1@outlook.com\\
+Aarnav Bhat, aarnavpbhat@gmail.com\\
+Interlake High School\\
+January 1, 2025}
+\date{}
+\maketitle
+
+\section*{Abstract}
+The US generates approximately 3 billion pounds of used cooking oil every year, primarily from small and mid-sized restaurants (Zonneveld, 2024). While many large chains profit from established recycling contracts, smaller establishments – comprising nearly 90\% of the industry – often pay high fees to dispose of their waste oil. This adds up to as much as \$0.50 per pound, straining pre-existing limited budgets and ignoring a remarkable opportunity to promote sustainability.
+
+BioCycle targets this problem by introducing a compact, open-source biodiesel reactor, utilizing ultrasonic cavitation alongside immobilized lipase enzymes to efficiently convert waste cooking oil into a drop-in biodiesel. We have two goals: to reduce restaurant overhead by replacing hauling costs with on-site recycling; and to give small businesses a direct path to environmental stewardship by transforming a major waste product into a low-carbon fuel. By combining existing novel enzyme-catalyzed transesterification techniques with ultrasonic technology, the resulting system will be 3D-printable, cost \$895 to assemble, and be easily managed by non-specialist staff.
+
+In implementing BioCycle, we will 3D-print structural components for the reactor, embed ultrasonic transducers around a reaction chamber, and integrate an Arduino controller for temperature and stirring automation. With MIT THINK’s generous mentorship and funding, we will design and build the reactor, run pilot tests with local restaurants, and publish open-source plans to increase our impact. Through BioCycle the creation of a valuable, low-carbon energy source that can directly be used to power food trucks, heaters, and backup generators in and out of the restaurant industry will take place.
+
+\section*{Motivation and Approach}
+
+\textbf{Problem and Motivation}
+
+Restaurants in the US discard billions of pounds of used cooking oil annually (EPA, 2020). Smaller establishments – often family-owned – lack established supplier contracts that larger franchises enjoy due to producing insufficient waste oil for a contract, making disposal disproportionately expensive. A typical small restaurant can generate 7,000 pounds of waste oil per year (Kumar et al., 2019), incurring \$1,750–\$3,500 in annual haul-away costs. Beyond the financial burden, improperly managed cooking oil can have severe environmental impacts, leading to clogged sewer lines and increased carbon emissions if transported long distances for recycling or disposal. This gap highlights the urgent need for an on-site solution that is low-cost, user-friendly, and capable of producing biodiesel with high efficiency.
+
+\textbf{Current Industry Work}
+
+Existing biodiesel systems for restaurants often feature large tanks and mechanical stirrers, relying on strong chemical catalysts. These industrial solutions typically range from \$5,000 to \$15,000, making it impractical for small restaurants. Smaller do-it-yourself kits exist but they rarely incorporate ultrasonic cavitation or enzyme catalysis, and they can be cumbersome to operate. Many DIY units also require highly precise temperature and moisture control to avoid soap formation, something that non-technical staff can find intimidating and cumbersome. As a result, most independent restaurants choose traditional waste hauling, losing the opportunity to produce approximately 830 gallons of biodiesel per year (Sohail et al., 2021).
+
+\textbf{Solution}
+
+BioCycle meets these gaps with a compact, user-friendly, and largely automated reactor built with an ultrasonic cavitation and enzymatic catalysis with immobilized lipase.
+
+By integrating ultrasonic transducers around a 5–10-gallon reaction chamber, the reactor drastically increases the surface area contact between the catalyst, alcohol, and oil. Recent research demonstrates that ultrasounds-assisted transesterification can increase yields to above 90\% in less than an hour (Kumar et al., 2019). 
+
+At the same time, immobilized lipase enzymes eliminate many soap-forming reactions caused by high free fatty acids. Lipases tolerate a broader variability in the quality of oil and also produce fewer byproducts, simplifying the downstream separation (Canakci \& Van Gerpen, 2001). Any soap still produced can be refined and used directly in restaurant restrooms.
+
+Compared to existing solutions, BioCycle will be dramatically cheaper at under \$1000 in total costs, accessible to those with basic DIY skills, and suitable for the typical waste oil output of local restaurants. By pairing ultrasonic enhancement with enzyme-based conversion, our system improves upon conventional technology in both speed and simplicity.  
+
+Figure 2. Detailed labeled view of the BioCycle reactor with labeled external and internal components, including the stirrer assembly, transducer brackets, and enzymatic catalyst chamber. Image Credit: Authors.
+
+\textbf{Approach}
+
+Our approach first involves designing and modeling a compact biodiesel reactor. This is a step we have already taken as seen in Figures 1 and 2. After our design and model is complete, the casing and brackets for ultrasonic transducers will be 3D-printed, and a small cylindrical steel or tempered glass vessel will be added to serve as the reaction chamber. Additionally, we will also mount ultrasonic transducers around the reaction chamber at 40 kHz, a frequency previously shown to optimize cavitation and enable reactions to complete in under an hour (Sohail et al., 2021). Within the reactor, an enzyme catalysis will also be employed that has a lipase catalyst, maintained at an ideal temperature of 40–50\degree C using a PID or on/off controller, with an Arduino system monitoring reaction parameter. To ensure uniform mixing, we will also include a stirrer or recirculating pump through our building process. Overall, this creates a successful, working biodiesel reactor that will be tested with a few initial pilot restaurants. 
+
+By doing so, we aim to achieve the standard rate of 95\% efficiency within 30–60 minutes of (Qingde et al., n.d.), producing 1–2 gallons of biodiesel per batch depending on the restaurant's waste oil availability. The combination of ultrasound, enzyme catalysis, and moderate heat is well-documented in biodiesel research (Kumar et al., 2019), and demonstration setups confirm these methods planned by us can be effectively implemented in small-scale reactors without specialized facilities.
+
+Once these goals are achieved, we can focus on scaling our project to more restaurants and making our project democratized and open source for restaurants across the world.
+
+\section*{Project Logistics and Organization}
+
+\textbf{Resources}
+
+Listed are the resources that are needed and will be obtained through MIT THINK Funding: Ultrasonic transducers (\$100–\$150 total), Immobilized lipase enzymes (\$200 per kilogram), Heating elements and controllers (\$50–\$75), Arduino with temperature and pH sensors (\$60–\$80), 3D-printed parts (2 kg of filament, \$50), Steel or glass vessel (\$100–\$150). 
+
+\textbf{Milestones and Completion Criteria}
+
+Prototype Completion: Build a fully functional reactor with a 5–10-gallon capacity; Performance Benchmarking: Achieve at least a 90\% biodiesel conversion rate within 60 minutes, measuring purity via viscosity, flash point, or other ASTM D6751 parameters; Open-Source Release: Publish detailed CAD files, part lists, and assembly guides, enabling restaurants or hobbyists to replicate our design worldwide.
+
+\textbf{Testing and Evaluation}
+
+To test out our prototypes, we will initially experiment our reactors with two pilot restaurants who have already agreed to implementation. Then, we will keep on optimizing and modifying our design to ensure our conversion rate is <60 minutes, a key metric in our project. 
+
+\textbf{Performance Specifications}
+
+• Time Efficiency: Achieves a biodiesel conversion rate of at least 90\% within 60 minutes.\\
+• Capacity: Reactor designed for a batch size of 5–10 gallons, suitable for typical waste oil volumes produced by small establishments.\\
+• Automation and Ease of Use: Minimal operator input required, making it user-friendly for non-technical staff and normal restaurant workers.\\
+• Catalyst System: Operates optimally at 40–50\degree C, maintained via a precise temperature control system, to prevent overheating.\\
+• Output Quality: Biodiesel conforms to ASTM D6751 standards, tested via viscosity and flash point measurements.\\
+• Environmental and Space Efficiency: A compact and portable reactor design minimizes storage requirements is needed. Also, chemical hazards should be reduced by avoiding strong chemical catalysts.
+
+\textbf{Division of Tasks}
+
+No task will be thought of as black or white, but rather one of us will lead a specific aspect of the project. Piyush will lead mechanical design and 3D printing while Aarnav leads the integration of electronics, sensors, and coordinates with external helpers (mentor, restaurants) for process validation while ensuring scalability. Collaboration will happen via multiple times a week check-ins and a shared timeline.
+
+\textbf{Risks}
+
+Chemical Safety (methanol) is a big risk considering its flammability. To mitigate this risk we will use sealed storage (certified, airtight containers to store methanol and prevent leaks or vapor release). Additionally, we will properly label all methanol containers with hazard warnings and handling instructions. Lastly, our mentor will help us carry out these steps to ensure chemical safety is ensured.
+
+Enzyme Degradation is a problem since it can result in poor efficiency. To counteract enzyme degradation, we will incorporate a PID (Proportional-Integral-Derivative) controller for real-time temperature adjustments, maintaining the reaction chamber within the optimal range (40–50\degree C). Additionally, we will implement thermal insulation around the reaction chamber to prevent heat fluctuations and protect enzymes from localized overheating. Lastly, we will monitor multiple sensors measuring temperature at various points in the reactor, ensuring uniform heat distribution.
+
+Handling a wide variety of variable feedstock quality from different restaurants is also an issue we foresee. As a result, we will integrate a mesh or fine filter at the input stage to remove solid debris such as food particles from the waste oil, producing a pre filtering system. We will also include a preheating chamber to gently heat the oil to around 70–80\degree C, evaporating water without reaching temperatures that could degrade the oil or catalysts.
+
+Lastly, for all these risks we foresee and encounter, we will seek guidance from the MIT Think team, helping us mitigate and minimize such risks to ensure our project is ultimately successful.
+
+\textbf{Timeline}
+
+• Mid-Late January: Finalize reactor design, acquire transducers and enzymes, and print housing.\\
+• Early February to Late April: Build prototype. Test small 1–2-gallon batches. Measure reaction efficiency and conversion rates. Then make changes to the prototype and test again. Incorporate MIT THINK feedback on design improvements.\\
+• May: Scale to full capacity (5–10 gallons). Collect data on yield, purity, and reaction time.\\
+• June: Final refinements. Compile open-source documentation and share results with local restaurants and MIT Think team.
+
+\section*{Current Progress and Need for Funding}
+So far, we have made significant progress in laying the foundation for BioCycle. We have developed a preliminary 3D model of the reactor casing, which provides a clear vision of the physical structure and components required. Additionally, based on detailed cost analysis estimates for the materials and components needed, we have ensured that our design aligns with the goal of keeping the system under \$1000. Importantly, we have also secured interest from two local restaurants that are enthusiastic about serving as pilot sites to test and evaluate BioCycle once the prototype is ready. 
+
+However, several critical components and steps are yet to be completed. We need to obtain ultrasonic hardware to implement the cavitation mechanism, gather immobilized lipase catalysts for enzymatic biodiesel production, and find sensors for system automation to monitor and regulate key parameters like temperature, mixing, and reaction progress. 
+
+Funding from MIT THINK will directly address these needs by enabling us to acquire the essential hardware and materials required to build and refine the prototype. 
+
+Additionally, mentorship from MIT THINK will be even more transformative in achieving our goals. With your guidance, we can fine-tune the reactor design for maximum performance, troubleshoot challenges in system integration, and employ additional methods for data collection and analysis during testing based on feedback. Mentorship will also provide us with invaluable insights into how we can democratize and ensure that our open-source design reaches a wide audience and makes a meaningful impact.
+
+\section*{Budget}
+
+\noindent
+\begin{tabular}{p{6cm} p{2.5cm} p{3cm} p{3cm}}
+\textbf{Item} & \textbf{Quantity} & \textbf{Estimated Cost (USD)} & \textbf{Supplier / Link} \\
+Ultrasonic Transducers (40 kHz, 50 W each) & 2--4 & \$100--\$150 & Mouser or eBay \\
+Heating Element + Temperature Controller & 1 set & \$50--\$75 & Grainger, McMaster-Carr \\
+Immobilized Lipase Enzyme (1 kg) & 1 & \$200 & Sigma-Aldrich, Novozymes \\
+Methanol (5 gallons) & 1 & \$60 & Local chemical distributor \\
+Arduino + Sensors (temp, pH) & 1 set & \$60--\$80 & SparkFun, Adafruit \\
+3D Printing Filament (PLA/ABS) & 2 kg & \$50 & MatterHackers or local print shops \\
+Steel/Glass Vessel, Pipes, Valves & 1 set & \$100--\$150 & Local hardware store / Online Retail \\
+Misc. Materials (hoses, sealants, adhesives) & - & \$50 & Lowe’s, Home Depot \\
+Contingency, Possible Taxes & - & \$130 & - \\
+\end{tabular}
+
+\bigskip
+\noindent
+Total \quad - \quad \$850 - \$945 \quad Under \$1000
+
+\section*{References:}
+
+Qingde, H., Fenghong, H., Wang, J., Jiangwei, W., \& Huang. (n.d.). Study of enzyme-catalyzed biodiesel process with high FFA oil assisted by ultrasonic. from \url{https://www.gcirc.org/fileadmin/documents/Proceedings/IRCWuhan2007%20vol5/230-233.pdf}
+
+Canakci, M., \& Van Gerpen, J. (2001). Biodiesel production from oils and fats with high free fatty acids. Transactions of the ASAE, 44(6), 1429–1436.
+
+Ferrusca, Montserrat \& Romero, Rubi \& Martinez Vargas, Sandra Luz \& Ramírez-Serrano, Armando \& Natividad, Reyna. (2023). Biodiesel Production from Waste Cooking Oil: A Perspective on Catalytic Processes. Processes. 11. 1952. 10.3390/pr11071952. 
+
+Raza, Mohsin \& Ali, Labeeb \& Inayat, Abrar \& Rocha Meneses, Lisandra \& Ahmed, Shams \& Mofijur, Md \& Jamil, Farrukh \& Azimoh, Chukwuma. (2022). Sustainability of biodiesel production using immobilized enzymes: A strategy to meet future bio‐economy challenges. International Journal of Energy Research. 46. 10.1002/er.8231. 
+
+United States Environmental Protection Agency (US EPA). (2020). Municipal Solid Waste Facts and Figures. \url{https://www.epa.gov/facts-and-figures-about-materials-waste-and-recycling}
+
+\end{document}
