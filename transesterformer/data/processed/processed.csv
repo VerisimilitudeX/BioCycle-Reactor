@@ -1,0 +1,18 @@
+# Example CSV data illustrating typical ranges for enzymatic biodiesel production
+# Concentrations are illustrative examples in mol/L (assuming initial TG ~1.1 mol/L)
+# Conditions reflect common experimental ranges.
+experiment_id,time,temperature,methanol_oil_ratio,enzyme_loading,stirring_rate,TG,DG,MG,FAME,Gly,MeOH
+WasteOil_45C_5to1_10pct_300rpm,0.0,45.0,5.0,10.0,300.0,1.10,0.00,0.00,0.00,0.00,5.50
+WasteOil_45C_5to1_10pct_300rpm,1.0,45.0,5.0,10.0,300.0,0.85,0.15,0.02,0.28,0.09,5.22
+WasteOil_45C_5to1_10pct_300rpm,2.0,45.0,5.0,10.0,300.0,0.65,0.25,0.05,0.65,0.22,4.85
+WasteOil_45C_5to1_10pct_300rpm,4.0,45.0,5.0,10.0,300.0,0.30,0.20,0.10,1.50,0.50,4.00
+WasteOil_45C_5to1_10pct_300rpm,8.0,45.0,5.0,10.0,300.0,0.10,0.08,0.07,2.55,0.85,2.95
+WasteOil_45C_5to1_10pct_300rpm,12.0,45.0,5.0,10.0,300.0,0.05,0.04,0.04,2.85,0.95,2.65
+WasteOil_45C_5to1_10pct_300rpm,24.0,45.0,5.0,10.0,300.0,0.02,0.02,0.02,3.10,1.03,2.40
+WasteOil_55C_4to1_8pct_400rpm,0.0,55.0,4.0,8.0,400.0,1.10,0.00,0.00,0.00,0.00,4.40
+WasteOil_55C_4to1_8pct_400rpm,0.5,55.0,4.0,8.0,400.0,0.90,0.12,0.01,0.21,0.07,4.19
+WasteOil_55C_4to1_8pct_400rpm,1.0,55.0,4.0,8.0,400.0,0.70,0.20,0.04,0.54,0.18,3.86
+WasteOil_55C_4to1_8pct_400rpm,2.0,55.0,4.0,8.0,400.0,0.40,0.22,0.08,1.20,0.40,3.20
+WasteOil_55C_4to1_8pct_400rpm,4.0,55.0,4.0,8.0,400.0,0.15,0.10,0.08,2.25,0.75,2.15
+WasteOil_55C_4to1_8pct_400rpm,8.0,55.0,4.0,8.0,400.0,0.05,0.04,0.04,2.85,0.95,1.55
+WasteOil_55C_4to1_8pct_400rpm,12.0,55.0,4.0,8.0,400.0,0.03,0.02,0.02,3.03,1.01,1.37
