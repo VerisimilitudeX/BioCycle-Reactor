@@ -49,17 +49,23 @@ def normalize_species(species_df):
     normalized_species = (species_tensor - means) / (stds + 1e-8)
     return normalized_species
 
-def denormalize_species(normalized_species_tensor):
-    """Denormalizes species concentrations."""
+def denormalize_species(normalized_species_tensor, to_numpy=False):
+    """Denormalizes species concentrations.
+    Args:
+        normalized_species_tensor: Input tensor of normalized species concentrations
+        to_numpy: If True, converts the output to numpy array. Default: False
+    Returns:
+        Denormalized species concentrations as torch tensor (default) or numpy array
+    """
     if not USE_NORMALIZATION:
-        return normalized_species_tensor.cpu().numpy() # Return numpy array for plotting
+        return normalized_species_tensor.cpu().numpy() if to_numpy else normalized_species_tensor
 
     # Ensure tensor is on CPU for numpy conversion if needed
     normalized_species_tensor = normalized_species_tensor.cpu()
     means = SPECIES_MEANS.cpu()
     stds = SPECIES_STDS.cpu()
     species = normalized_species_tensor * (stds + 1e-8) + means
-    return species.numpy()
+    return species.numpy() if to_numpy else species
 
 def calculate_initial_moles(oil_mass_g, methanol_oil_ratio, density_oil=0.92, density_methanol=0.79):
     """

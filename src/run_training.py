@@ -4,8 +4,8 @@ Main script to start the training process.
 """
 import os
 import argparse
-from src.train import run_training_pipeline
-from src.constants import DATA_PATH, MODEL_SAVE_DIR
+from .train import run_training_pipeline
+from .constants import DATA_PATH, MODEL_SAVE_DIR
 
 def main():
     parser = argparse.ArgumentParser(description="Train Transesterformer Model")

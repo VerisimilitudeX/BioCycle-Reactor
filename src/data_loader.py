@@ -11,7 +11,8 @@ from .constants import (
     DEVICE, BATCH_SIZE, USE_NORMALIZATION
 )
 from .utils import (
-    normalize_conditions, normalize_species, convert_mass_fraction_to_molar
+    normalize_conditions, normalize_species, convert_mass_fraction_to_molar,
+    denormalize_conditions, denormalize_species
 )
 
 class BiodieselKineticsDataset(Dataset):
@@ -35,7 +36,7 @@ class BiodieselKineticsDataset(Dataset):
     def _load_and_process_data(self):
         """Loads data from CSV, processes it, and groups by experiment."""
         try:
-            df = pd.read_csv(self.data_path)
+            df = pd.read_csv(self.data_path, sep=",", engine="python")
             print(f"Loaded data with columns: {df.columns.tolist()}")
         except FileNotFoundError:
             print(f"Error: Data file not found at {self.data_path}")

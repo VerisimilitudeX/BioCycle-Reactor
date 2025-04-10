@@ -16,15 +16,15 @@ MW_GLY = 92.09  # Glycerol
 
 # --- Species Names & Indices ---
 # Ensure these match the columns in your processed data CSV
-SPECIES = ['TG', 'DG', 'MG', 'FAME', 'Gly', 'MeOH'] # Order matters!
+SPECIES = ['oil', 'methanol', 'biodiesel', 'glycerol'] # Order matters!
 SPECIES_MAP = {name: i for i, name in enumerate(SPECIES)}
 N_SPECIES = len(SPECIES)
 
 # --- Data Columns ---
 # Columns expected in the input CSV data/processed/kinetic_data.csv
 TIME_COL = 'time'
-EXP_ID_COL = 'experiment_id'
-CONDITION_COLS = ['temperature', 'methanol_oil_ratio', 'enzyme_loading', 'stirring_rate'] # Input conditions
+EXP_ID_COL = 'exp_id'
+CONDITION_COLS = ['temperature', 'catalyst_conc'] # Input conditions
 SPECIES_COLS = SPECIES # Output species concentrations
 
 # --- Model Hyperparameters ---
@@ -81,9 +81,9 @@ N_REACTIONS = STOICHIOMETRY_MATRIX.shape[0]
 # Define means and stds for conditions and species if using normalization
 # These should ideally be calculated from the training data
 # Example placeholders (replace with actual values calculated in data_loader):
-CONDITION_MEANS = torch.tensor([45.0, 4.5, 10.0, 300.0], device=DEVICE) # Temp, Ratio, Enzyme, Stir
-CONDITION_STDS = torch.tensor([10.0, 1.5, 5.0, 100.0], device=DEVICE)
-SPECIES_MEANS = torch.tensor([0.5, 0.2, 0.1, 0.5, 0.1, 2.0], device=DEVICE) # TG, DG, MG, FAME, Gly, MeOH (mol/L)
-SPECIES_STDS = torch.tensor([0.4, 0.2, 0.1, 0.4, 0.1, 1.0], device=DEVICE)
+CONDITION_MEANS = torch.tensor([45.0, 1.0], device=DEVICE) # Temperature, catalyst_conc
+CONDITION_STDS = torch.tensor([10.0, 0.5], device=DEVICE)
+SPECIES_MEANS = torch.tensor([0.5, 0.5, 0.5, 0.1], device=DEVICE) # oil, methanol, biodiesel, glycerol (mol/L)
+SPECIES_STDS = torch.tensor([0.4, 0.4, 0.4, 0.1], device=DEVICE)
 USE_NORMALIZATION = True # Set to False if you don't want normalization
 
