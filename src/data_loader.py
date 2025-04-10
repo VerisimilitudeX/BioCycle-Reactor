@@ -37,6 +37,12 @@ class BiodieselKineticsDataset(Dataset):
         """Loads data from CSV, processes it, and groups by experiment."""
         try:
             df = pd.read_csv(self.data_path, sep=",", engine="python")
+            df = df.rename(columns={
+                'oil': 'TG',
+                'methanol': 'MeOH',
+                'biodiesel': 'FAME',
+                'glycerol': 'Gly'
+            })
             print(f"Loaded data with columns: {df.columns.tolist()}")
         except FileNotFoundError:
             print(f"Error: Data file not found at {self.data_path}")

@@ -297,9 +297,7 @@ class Transesterformer(nn.Module):
             initial_conditions,
             times,
             method=self.ode_solver,
-            options=self.ode_options,
-            # rtol=self.ode_options.get('rtol', 1e-4), # Pass tolerances via options
-            # atol=self.ode_options.get('atol', 1e-4)
+            **self.ode_options
         )
 
         # Retrieve regularization loss calculated during ODE forward calls

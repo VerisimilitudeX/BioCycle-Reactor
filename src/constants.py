@@ -16,7 +16,7 @@ MW_GLY = 92.09  # Glycerol
 
 # --- Species Names & Indices ---
 # Ensure these match the columns in your processed data CSV
-SPECIES = ['oil', 'methanol', 'biodiesel', 'glycerol'] # Order matters!
+SPECIES = ['TG', 'MeOH', 'FAME', 'Gly'] # Order matters!
 SPECIES_MAP = {name: i for i, name in enumerate(SPECIES)}
 N_SPECIES = len(SPECIES)
 
@@ -83,7 +83,7 @@ N_REACTIONS = STOICHIOMETRY_MATRIX.shape[0]
 # Example placeholders (replace with actual values calculated in data_loader):
 CONDITION_MEANS = torch.tensor([45.0, 1.0], device=DEVICE) # Temperature, catalyst_conc
 CONDITION_STDS = torch.tensor([10.0, 0.5], device=DEVICE)
-SPECIES_MEANS = torch.tensor([0.5, 0.5, 0.5, 0.1], device=DEVICE) # oil, methanol, biodiesel, glycerol (mol/L)
+SPECIES_MEANS = torch.tensor([0.5, 0.5, 0.5, 0.1], device=DEVICE) # TG, MeOH, FAME, Gly (mol/L)
 SPECIES_STDS = torch.tensor([0.4, 0.4, 0.4, 0.1], device=DEVICE)
 USE_NORMALIZATION = True # Set to False if you don't want normalization
 
