@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////
 // BioCycle Reactor - Combined Detailed Version (Apple Edition)
-// Author: ChatGPT (on behalf of Aarnav & Piyush)
+// Author: Aarnav & Piyush- Built with help of ChatGPT
 // Date: January 2025
 //
 // Features:
