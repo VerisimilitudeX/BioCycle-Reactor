@@ -1,349 +1,321 @@
 # src/model.py
 """
-Defines the Physics-Guided Neural ODE model ("Transesterformer").
-Includes the condition encoder, the symbolic kinetics part, the neural augmentation part,
-and the overall ODE function.
+Defines the Physics‑Guided Neural ODE model (“Transesterformer”),
+with robust per‑sample integration and proper tensor shape handling.
 """
+
 import torch
 import torch.nn as nn
-from torchdiffeq import odeint_adjoint as odeint # Use adjoint method for memory efficiency
-# from torchdiffeq import odeint # Use standard odeint if adjoint causes issues
+from torchdiffeq import odeint            # use standard odeint solver
 
 from .constants import (
-    N_SPECIES, N_REACTIONS, CONDITION_COLS, NODE_HIDDEN_DIM, NODE_N_LAYERS, NODE_ACTIVATION,
-    ENCODER_HIDDEN_DIM, ENCODER_N_LAYERS, ENCODER_OUTPUT_DIM, STOICHIOMETRY_MATRIX,
-    DEVICE, SPECIES_MAP, MW_MEOH, MW_OIL, MW_FAME, MW_GLY, LAMBDA_RATE_REG
+    N_SPECIES, N_REACTIONS, CONDITION_COLS,
+    NODE_HIDDEN_DIM, NODE_N_LAYERS, NODE_ACTIVATION,
+    ENCODER_HIDDEN_DIM, ENCODER_N_LAYERS, ENCODER_OUTPUT_DIM,
+    STOICHIOMETRY_MATRIX, DEVICE, SPECIES_MAP, LAMBDA_RATE_REG
 )
 
+# -------------------------------------------------------------------------
 class ConditionEncoder(nn.Module):
-    """Encodes high-dimensional condition vector into a lower-dimensional latent space."""
     def __init__(self, input_dim, hidden_dim, output_dim, n_layers):
         super().__init__()
-        layers = []
-        layers.append(nn.Linear(input_dim, hidden_dim))
-        layers.append(nn.ReLU()) # Use ReLU for encoder
+        layers = [nn.Linear(input_dim, hidden_dim), nn.ReLU()]
         for _ in range(n_layers - 1):
-            layers.append(nn.Linear(hidden_dim, hidden_dim))
-            layers.append(nn.ReLU())
+            layers += [nn.Linear(hidden_dim, hidden_dim), nn.ReLU()]
         layers.append(nn.Linear(hidden_dim, output_dim))
         self.net = nn.Sequential(*layers)
 
-    def forward(self, conditions):
-        """
-        Args:
-            conditions (torch.Tensor): Shape (batch_size, n_conditions)
-        Returns:
-            torch.Tensor: Shape (batch_size, output_dim)
-        """
-        return self.net(conditions)
+    def forward(self, x):
+        return self.net(x)
 
+# -------------------------------------------------------------------------
 class SymbolicKinetics(nn.Module):
-    """
-    Implements the symbolic part of the reaction kinetics (e.g., Ping-Pong Bi-Bi).
-    Kinetic parameters can be modulated by the encoded conditions.
-    """
-    def __init__(self, encoded_condition_dim):
+    def __init__(self, enc_dim):
         super().__init__()
-        # Example: Learnable base parameters (these could be fixed if known)
-        # We make Vmax and Km dependent on conditions via small networks
-        self.vmax_net = nn.Linear(encoded_condition_dim, N_REACTIONS) # Predict Vmax for each reaction
-        self.km_tg_net = nn.Linear(encoded_condition_dim, 1) # Km for TG (assuming same for R1)
-        self.km_dg_net = nn.Linear(encoded_condition_dim, 1) # Km for DG (assuming same for R2)
-        self.km_mg_net = nn.Linear(encoded_condition_dim, 1) # Km for MG (assuming same for R3)
-        self.km_meoh_net = nn.Linear(encoded_condition_dim, N_REACTIONS) # Km for MeOH for each reaction
-        self.k_inhibition_meoh_net = nn.Linear(encoded_condition_dim, N_REACTIONS) # Inhibition constant for MeOH
+        # Define layers to predict kinetic parameters based on encoded conditions
+        self.vmax_net  = nn.Linear(enc_dim, N_REACTIONS) # Predicts Vmax for each reaction
+        self.km_tg_net = nn.Linear(enc_dim, 1)           # Predicts Km for TG in reaction 1
+        self.km_dg_net = nn.Linear(enc_dim, 1)           # Predicts Km for DG in reaction 2
+        self.km_mg_net = nn.Linear(enc_dim, 1)           # Predicts Km for MG in reaction 3
+        self.km_meoh   = nn.Linear(enc_dim, N_REACTIONS) # Predicts Km for MeOH in each reaction
+        self.softplus  = nn.Softplus()                   # Ensures kinetic parameters are positive
 
-        # Activation to ensure positivity of parameters
-        self.softplus = nn.Softplus()
-
-    def forward(self, species, encoded_conditions):
+    def forward(self, species, enc):
         """
-        Calculates reaction rates based on symbolic kinetics.
+        Calculates reaction rates based on Michaelis-Menten kinetics.
         Args:
-            species (torch.Tensor): Current species concentrations (batch_size, n_species)
-            encoded_conditions (torch.Tensor): Encoded condition vector (batch_size, encoded_dim)
+            species (Tensor): Species concentrations, shape (batch, n_species).
+            enc (Tensor): Encoded conditions, shape (batch, enc_dim).
         Returns:
-            torch.Tensor: Reaction rates (batch_size, n_reactions)
+            Tensor: Reaction rates, shape (batch, n_reactions).
         """
-        # Predict condition-dependent parameters
+        # Predict kinetic parameters from encoded conditions
         # Use softplus to ensure positivity
-        vmax = self.softplus(self.vmax_net(encoded_conditions)) # (batch_size, n_reactions)
-        km_tg = self.softplus(self.km_tg_net(encoded_conditions)) # (batch_size, 1)
-        km_dg = self.softplus(self.km_dg_net(encoded_conditions)) # (batch_size, 1)
-        km_mg = self.softplus(self.km_mg_net(encoded_conditions)) # (batch_size, 1)
-        km_meoh = self.softplus(self.km_meoh_net(encoded_conditions)) # (batch_size, n_reactions)
-        k_inhibition_meoh = self.softplus(self.k_inhibition_meoh_net(encoded_conditions)) # (batch_size, n_reactions)
+        vmax  = self.softplus(self.vmax_net(enc))    # (batch, n_reactions)
+        km_tg = self.softplus(self.km_tg_net(enc))   # (batch, 1)
+        km_dg = self.softplus(self.km_dg_net(enc))   # (batch, 1)
+        km_mg = self.softplus(self.km_mg_net(enc))   # (batch, 1)
+        km_me = self.softplus(self.km_meoh(enc))     # (batch, n_reactions)
 
-        # Extract individual species concentrations for clarity
-        # Ensure species are non-negative before using in denominators
-        tg = torch.relu(species[:, SPECIES_MAP['TG']])
-        dg = torch.relu(species[:, SPECIES_MAP['DG']])
-        mg = torch.relu(species[:, SPECIES_MAP['MG']])
-        meoh = torch.relu(species[:, SPECIES_MAP['MeOH']])
-        # FAME and Gly are products, don't typically inhibit in simple models
+        # Extract species concentrations, ensuring non-negativity with relu
+        # Indexing assumes species is (batch, n_species)
+        tg = torch.relu(species[:, SPECIES_MAP['TG']])   # (batch,)
+        dg = torch.relu(species[:, SPECIES_MAP['DG']])   # (batch,)
+        mg = torch.relu(species[:, SPECIES_MAP['MG']])   # (batch,)
+        me = torch.relu(species[:, SPECIES_MAP['MeOH']]) # (batch,)
+        eps = 1e-8 # Small epsilon to prevent division by zero in kinetics
 
-        # --- Simplified Ping-Pong Bi-Bi Kinetics with Methanol Inhibition ---
-        # Rate = Vmax * [A] * [B] / (KmB*[A] + KmA*[B] + [A]*[B] * (1 + [I]/Ki))
-        # This is a simplified representation. A full Ping-Pong model is more complex.
-        # We'll use a Michaelis-Menten like form for each step for simplicity here.
-        # Rate_i = Vmax_i * (Substrate1 / (Km1 + Substrate1)) * (Substrate2 / (Km2 + Substrate2)) * InhibitionTerm
+        # Calculate rates for each reaction using Michaelis-Menten like terms
+        # Unsqueeze substrate concentrations to allow broadcasting with Km tensors
+        # r = Vmax * [S1]/(Km1 + [S1]) * [S2]/(Km2 + [S2])
+        r1 = vmax[:,0] * tg / (km_tg.squeeze(-1) + tg + eps) * me / (km_me[:,0] + me + eps)
+        r2 = vmax[:,1] * dg / (km_dg.squeeze(-1) + dg + eps) * me / (km_me[:,1] + me + eps)
+        r3 = vmax[:,2] * mg / (km_mg.squeeze(-1) + mg + eps) * me / (km_me[:,2] + me + eps)
 
-        epsilon = 1e-8 # Small value to prevent division by zero
-
-        # Reaction 1: TG + MeOH -> DG + FAME
-        denom1 = (km_tg + tg) * (km_meoh[:, 0] + meoh) * (1 + meoh / (k_inhibition_meoh[:, 0] + epsilon))
-        rate1 = vmax[:, 0] * (tg / (km_tg + tg + epsilon)) * (meoh / (km_meoh[:, 0] + meoh + epsilon))
-        # Simpler alternative: rate1 = vmax[:, 0] * tg * meoh / (denom1 + epsilon) # Check literature for exact form
-
-        # Reaction 2: DG + MeOH -> MG + FAME
-        denom2 = (km_dg + dg) * (km_meoh[:, 1] + meoh) * (1 + meoh / (k_inhibition_meoh[:, 1] + epsilon))
-        rate2 = vmax[:, 1] * (dg / (km_dg + dg + epsilon)) * (meoh / (km_meoh[:, 1] + meoh + epsilon))
-
-        # Reaction 3: MG + MeOH -> Gly + FAME
-        denom3 = (km_mg + mg) * (km_meoh[:, 2] + meoh) * (1 + meoh / (k_inhibition_meoh[:, 2] + epsilon))
-        rate3 = vmax[:, 2] * (mg / (km_mg + mg + epsilon)) * (meoh / (km_meoh[:, 2] + meoh + epsilon))
-
-        # Combine rates - ensure shape is (batch_size, n_reactions)
-        rates = torch.stack([rate1, rate2, rate3], dim=1)
-
+        # Stack rates into a single tensor (batch, n_reactions)
+        rates = torch.stack([r1, r2, r3], dim=1)
         # Ensure rates are non-negative
-        rates = torch.relu(rates)
+        return torch.relu(rates)
 
-        return rates
-
-
+# -------------------------------------------------------------------------
 class NeuralAugmentation(nn.Module):
-    """
-    Learns residual dynamics (corrections) not captured by the symbolic part.
-    Uses a simple MLP.
-    """
-    def __init__(self, n_species, encoded_condition_dim, hidden_dim, n_layers, activation):
+    def __init__(self, n_species, enc_dim, hidden_dim, n_layers, activation):
         super().__init__()
-        input_dim = n_species + encoded_condition_dim
-        layers = []
-        layers.append(nn.Linear(input_dim, hidden_dim))
-        layers.append(activation())
+        # Define the neural network structure
+        layers = [nn.Linear(n_species + enc_dim, hidden_dim), activation()]
         for _ in range(n_layers - 1):
-            layers.append(nn.Linear(hidden_dim, hidden_dim))
-            layers.append(activation())
-        # Output dimension should match the number of reactions or species,
-        # depending on how corrections are applied. Here, assume corrections per reaction.
-        layers.append(nn.Linear(hidden_dim, N_REACTIONS))
+            layers += [nn.Linear(hidden_dim, hidden_dim), activation()]
+        layers.append(nn.Linear(hidden_dim, N_REACTIONS)) # Output dimension matches number of reactions
         self.net = nn.Sequential(*layers)
 
-    def forward(self, species, encoded_conditions):
+    def forward(self, species, enc):
         """
+        Calculates the neural correction/augmentation to reaction rates.
         Args:
-            species (torch.Tensor): Current species concentrations (batch_size, n_species)
-            encoded_conditions (torch.Tensor): Encoded condition vector (batch_size, encoded_dim)
+            species (Tensor): Species concentrations, shape (batch, n_species).
+            enc (Tensor): Encoded conditions, shape (batch, enc_dim).
         Returns:
-            torch.Tensor: Rate corrections (batch_size, n_reactions)
+            Tensor: Neural rate adjustments, shape (batch, n_reactions).
         """
-        # Concatenate species and conditions as input
-        net_input = torch.cat([species, encoded_conditions], dim=1)
-        corrections = self.net(net_input)
-        return corrections
+        # Concatenate species and encoded conditions as input to the network
+        nn_input = torch.cat([species, enc], dim=1)
+        return self.net(nn_input)
 
-
+# -------------------------------------------------------------------------
 class TransesterformerODE(nn.Module):
     """
-    The combined ODE function dC/dt = f(C, t, conditions).
-    Uses the symbolic kinetics and neural augmentation.
+    The ODE function dy/dt = f(t, y, conditions) for the Transesterformer model.
+    It combines symbolic kinetics with a neural augmentation term.
+    Designed to be called by an ODE solver like torchdiffeq.odeint.
     """
-    def __init__(self, encoded_condition_dim, node_hidden_dim, node_n_layers, node_activation):
+    def __init__(self, enc_dim, hidden_dim, n_layers, activation):
         super().__init__()
-        self.encoded_condition_dim = encoded_condition_dim
-        self.symbolic_kinetics = SymbolicKinetics(encoded_condition_dim)
-        self.neural_augmentation = NeuralAugmentation(
-            N_SPECIES, encoded_condition_dim, node_hidden_dim, node_n_layers, node_activation
-        )
-        # Ensure stoichiometry matrix is on the correct device
-        self.stoichiometry = STOICHIOMETRY_MATRIX.to(DEVICE)
+        self.symbolic = SymbolicKinetics(enc_dim)
+        self.neural   = NeuralAugmentation(N_SPECIES, enc_dim, hidden_dim, n_layers, activation)
+        # Ensure Stoichiometry matrix is on the correct device
+        self.S        = STOICHIOMETRY_MATRIX.to(DEVICE)
+        self._enc     = None # To store the current encoded conditions
+        # To store the regularization loss from the neural component
+        self.latest_neural_reg_loss = torch.tensor(0.0, device=DEVICE)
 
-        # Store encoded conditions - these are set externally per batch/experiment
-        self._encoded_conditions = None
-        self._batch_size = None
-
-    def set_conditions(self, encoded_conditions):
-        """Stores the encoded conditions for the current batch/integration."""
-        self._encoded_conditions = encoded_conditions
-        self._batch_size = encoded_conditions.shape[0]
-
+    def set_conditions(self, enc):
+        """
+        Store the encoded conditions for the current ODE solve.
+        Ensures enc is at least 2D: (1, enc_dim).
+        """
+        if enc.dim() == 1:
+            # Unsqueeze if a single condition vector is passed
+            self._enc = enc.unsqueeze(0).to(DEVICE)
+        else:
+            self._enc = enc.to(DEVICE)
 
     def forward(self, t, species):
         """
-        Calculates dC/dt.
+        Computes the time derivative of species concentrations (dC/dt).
         Args:
-            t (torch.Tensor): Current time (scalar, ignored by autonomous ODE).
-            species (torch.Tensor): Current species concentrations (batch_size, n_species).
-                                     Shape might be just (n_species,) during integration per sample.
+            t (Tensor): Current time (scalar). Usually ignored in autonomous ODEs.
+            species (Tensor): Current species concentrations.
+                              Shape can be (n_species,) or (batch, n_species)
+                              depending on how odeint calls it.
         Returns:
-            torch.Tensor: Time derivatives dC/dt (batch_size, n_species).
+            Tensor: Time derivatives (dC/dt), same shape as input `species`.
         """
-        # Handle potential shape difference during integration
-        is_batch = species.dim() == 2
-        current_batch_size = species.shape[0] if is_batch else 1
+        enc = self._enc
+        if enc is None:
+            raise RuntimeError("Encoded conditions not set. Call set_conditions() before odeint.")
 
-        if self._encoded_conditions is None:
-            raise RuntimeError("Encoded conditions not set before calling ODE function.")
+        # --- Shape Handling ---
+        # Store original dimension to return the correct shape expected by odeint
+        original_dim = species.dim()
+        if original_dim == 1:
+            # Unsqueeze to (1, n_species) if input is 1D
+            species = species.unsqueeze(0)
 
-        # Ensure encoded conditions match the batch size being processed by the solver
-        if is_batch:
-            if current_batch_size != self._batch_size:
-                 # This might happen if the solver calls with a different batch structure?
-                 # Or if called outside the main training loop without setting conditions.
-                 # For simplicity, assume conditions are correctly set per batch.
-                 # If issues arise, may need to pass conditions explicitly or handle slicing.
-                 print(f"Warning: Batch size mismatch in ODE forward. Expected {self._batch_size}, got {current_batch_size}.")
-                 # Use the first condition if sizes mismatch (potential issue)
-                 encoded_conditions_batch = self._encoded_conditions[0:1].expand(current_batch_size, -1)
-
+        # --- Ensure Condition Encoding Matches Batch Dimension ---
+        # This handles cases where odeint might internally batch, or if
+        # this function is called directly with batched data.
+        if enc.size(0) != species.size(0):
+            if enc.size(0) == 1:
+                # Broadcast conditions if only one set was provided for a batch
+                enc = enc.expand(species.size(0), -1)
             else:
-                 encoded_conditions_batch = self._encoded_conditions
+                # This indicates a mismatch that shouldn't happen with the current
+                # training loop structure (calling odeint per sample).
+                raise RuntimeError(
+                    f"Batch size mismatch in ODE function: "
+                    f"species batch={species.size(0)}, "
+                    f"conditions batch={enc.size(0)}"
+                )
+        # Ensure species is on the correct device (might be created by odeint on CPU)
+        species = species.to(DEVICE)
+
+        # --- Rate Calculation ---
+        # Compute rates from symbolic and neural components
+        # Both expect 2D input: (batch, n_species) and (batch, enc_dim)
+        sym_rates = self.symbolic(species, enc) # (batch, n_reactions)
+        neu_rates = self.neural(species, enc)   # (batch, n_reactions)
+
+        # Store the regularization loss (L2 norm of neural rates)
+        # Average over the batch dimension if batch > 1
+        self.latest_neural_reg_loss = LAMBDA_RATE_REG * torch.mean(neu_rates ** 2)
+
+        # Combine rates (ensure positivity)
+        total_rates = torch.relu(sym_rates + neu_rates) # (batch, n_reactions)
+
+        # --- Calculate dC/dt ---
+        # Matrix multiplication: (batch, n_reactions) @ (n_reactions, n_species)
+        dCdt = total_rates @ self.S # (batch, n_species)
+
+        # --- Return Correct Shape ---
+        # odeint expects the returned derivative to have the same shape as the input state
+        if original_dim == 1:
+            # Squeeze back to (n_species,) if input was 1D
+            return dCdt.squeeze(0)
         else:
-            # If input is single sample (n_species,), use the corresponding condition
-            # This assumes the solver integrates sample by sample or we handle batching outside
-            # For simplicity, assume conditions are batched correctly matching species input
-            if self._batch_size == 1:
-                 encoded_conditions_batch = self._encoded_conditions
-                 species = species.unsqueeze(0) # Add batch dim
-            else:
-                 # This case is tricky - which condition corresponds to this single species vector?
-                 # Assumes called within a loop where conditions are correctly sliced/indexed.
-                 # Fallback: Use the first condition (likely wrong if batch > 1)
-                 # encoded_conditions_batch = self._encoded_conditions[0:1]
-                 # species = species.unsqueeze(0) # Add batch dim
-                 # Better approach: Ensure ODE is always called with batched species & conditions
-                 raise RuntimeError("ODE function called with unbatched species but batch conditions > 1.")
+            # Return (batch, n_species) if input was 2D
+            return dCdt
 
-
-        # 1. Calculate symbolic rates
-        symbolic_rates = self.symbolic_kinetics(species, encoded_conditions_batch)
-
-        # 2. Calculate neural corrections
-        neural_corrections = self.neural_augmentation(species, encoded_conditions_batch)
-
-        # Regularization for neural corrections (can be added to main loss instead)
-        self.latest_neural_reg_loss = LAMBDA_RATE_REG * torch.mean(neural_corrections**2)
-
-        # 3. Combine rates
-        # Option A: Neural net predicts correction factor (multiplicative)
-        # total_rates = symbolic_rates * (1 + neural_corrections) # Needs careful scaling/activation
-        # Option B: Neural net predicts additive correction
-        total_rates = symbolic_rates + neural_corrections # (batch_size, n_reactions)
-
-        # Ensure total rates are physically plausible (e.g., non-negative if reactions are irreversible)
-        total_rates = torch.relu(total_rates) # Assuming forward reactions only
-
-        # 4. Calculate dC/dt using stoichiometry
-        # dC/dt = S * R
-        # S: (n_species, n_reactions), R: (batch_size, n_reactions)
-        # Need S.T: (n_reactions, n_species)
-        # dC/dt: (batch_size, n_reactions) @ (n_reactions, n_species) -> (batch_size, n_species)
-        dCdt = total_rates @ self.stoichiometry.T # Use transpose of defined S
-
-        # Return derivatives, remove batch dim if input was single sample
-        return dCdt.squeeze(0) if not is_batch else dCdt
-
-
+# -------------------------------------------------------------------------
 class Transesterformer(nn.Module):
     """
-    The main model class orchestrating the encoder and the Neural ODE.
+    Main Physics-Guided Neural ODE model. Encodes conditions and uses
+    TransesterformerODE with an ODE solver to predict species evolution.
     """
-    def __init__(self, n_conditions=len(CONDITION_COLS),
-                 encoder_hidden_dim=ENCODER_HIDDEN_DIM,
-                 encoder_output_dim=ENCODER_OUTPUT_DIM,
-                 encoder_n_layers=ENCODER_N_LAYERS,
-                 node_hidden_dim=NODE_HIDDEN_DIM,
-                 node_n_layers=NODE_N_LAYERS,
-                 node_activation=NODE_ACTIVATION,
-                 ode_solver=None, # Pass solver params from train script
-                 ode_options=None):
+    def __init__(
+        self,
+        n_conditions=len(CONDITION_COLS),
+        encoder_hidden_dim=ENCODER_HIDDEN_DIM,
+        encoder_output_dim=ENCODER_OUTPUT_DIM,
+        encoder_n_layers=ENCODER_N_LAYERS,
+        node_hidden_dim=NODE_HIDDEN_DIM,
+        node_n_layers=NODE_N_LAYERS,
+        node_activation=NODE_ACTIVATION,
+        ode_solver="dopri5", # Default solver
+        ode_options=None,    # Dictionary for solver options like tolerances
+    ):
         super().__init__()
-        self.encoder = ConditionEncoder(n_conditions, encoder_hidden_dim, encoder_output_dim, encoder_n_layers)
-        self.ode_func = TransesterformerODE(encoder_output_dim, node_hidden_dim, node_n_layers, node_activation)
-        self.ode_solver = ode_solver if ode_solver else 'dopri5' # Default solver
-        self.ode_options = ode_options if ode_options else {} # Default options
-
-        # Placeholder for regularization loss from ODE func
+        # Condition encoder sub-module
+        self.encoder     = ConditionEncoder(n_conditions, encoder_hidden_dim,
+                                            encoder_output_dim, encoder_n_layers)
+        # ODE function sub-module
+        self.ode_func    = TransesterformerODE(encoder_output_dim,
+                                               node_hidden_dim,
+                                               node_n_layers,
+                                               node_activation)
+        self.ode_solver  = ode_solver
+        # Store ODE solver options, ensuring defaults are set if none provided
+        self.ode_options = ode_options.copy() if ode_options else {}
+        # Initialize regularization loss storage
         self.neural_reg_loss = torch.tensor(0.0, device=DEVICE)
-
 
     def forward(self, initial_conditions, times, conditions):
         """
-        Performs forward pass: encodes conditions and solves the ODE.
+        Performs the forward pass: encodes conditions, solves the ODE for each
+        sample in the batch, and returns the predicted species concentrations over time.
+
         Args:
-            initial_conditions (torch.Tensor): Initial species concentrations C(t=0)
-                                               Shape (batch_size, n_species)
-            times (torch.Tensor): Time points to evaluate the solution at.
-                                  Shape (n_times,) - MUST be sorted.
-            conditions (torch.Tensor): Condition vectors for each experiment.
-                                       Shape (batch_size, n_conditions)
+            initial_conditions (Tensor): Initial species concentrations (batch, n_species).
+            times (Tensor): Time points for prediction (n_times,). Should start at t=0.
+            conditions (Tensor): Experimental conditions (batch, n_conditions).
+
         Returns:
-            torch.Tensor: Predicted species concentrations over time.
-                          Shape (batch_size, n_times, n_species)
+            Tensor: Predicted species concentrations (batch, n_times, n_species).
         """
-        # 1. Encode conditions
-        encoded_conditions = self.encoder(conditions) # (batch_size, encoded_dim)
+        batch_size = initial_conditions.size(0)
+        out_list = [] # List to store solutions for each batch item
 
-        # 2. Set conditions in ODE function for this batch
-        self.ode_func.set_conditions(encoded_conditions)
+        # --- Loop through batch samples ---
+        # NOTE: This processes each sample individually. For larger datasets,
+        #       calling odeint once with the full batch might be more efficient,
+        #       but requires the ODE function to handle batches correctly.
+        #       The current TransesterformerODE is designed to handle this,
+        #       but this loop structure keeps the logic simpler for now.
+        for i in range(batch_size):
+            ic = initial_conditions[i]         # Get initial condition (n_species,)
+            cond_i = conditions[i].unsqueeze(0) # Get condition (1, n_conditions)
 
-        # 3. Solve the ODE system
-        # odeint expects initial conditions (batch, dim), times (times,)
-        # It returns (times, batch, dim) -> permute to (batch, times, dim)
-        pred_species_over_time = odeint(
-            self.ode_func,
-            initial_conditions,
-            times,
-            method=self.ode_solver,
-            options=self.ode_options,
-            # rtol=self.ode_options.get('rtol', 1e-4), # Pass tolerances via options
-            # atol=self.ode_options.get('atol', 1e-4)
-        )
+            # Encode the condition for this sample
+            enc_i = self.encoder(cond_i)       # (1, enc_dim)
 
-        # Retrieve regularization loss calculated during ODE forward calls
-        # Note: This might only capture the loss from the last step if not careful.
-        # A better way might be to accumulate it within the ODE func or recalculate.
-        # For simplicity, we use the last stored value.
-        self.neural_reg_loss = self.ode_func.latest_neural_reg_loss if hasattr(self.ode_func, 'latest_neural_reg_loss') else torch.tensor(0.0, device=DEVICE)
+            # Set the encoded condition in the ODE function instance
+            # This makes 'enc_i' available within self.ode_func.forward
+            self.ode_func.set_conditions(enc_i)
 
+            # Prepare solver options (e.g., tolerances)
+            opts = self.ode_options.copy()
+            rtol = opts.pop("rtol", 1e-4) # Relative tolerance
+            atol = opts.pop("atol", 1e-4) # Absolute tolerance
 
-        # Permute output to (batch_size, n_times, n_species)
-        pred_species_over_time = pred_species_over_time.permute(1, 0, 2)
+            # --- Solve the ODE ---
+            sol = odeint(
+                self.ode_func,        # The ODE function dC/dt = f(t, C)
+                ic,                   # Initial state C(t=0), shape (n_species,)
+                times,                # Time points to evaluate at, shape (n_times,)
+                rtol=rtol,            # Relative tolerance
+                atol=atol,            # Absolute tolerance
+                method=self.ode_solver,# Name of the solver algorithm
+                options=opts,         # Other solver options
+            ) # Output shape: (n_times, n_species)
 
-        return pred_species_over_time
+            # Add batch dimension and append to list
+            out_list.append(sol.unsqueeze(0))  # (1, n_times, n_species)
 
+        # Concatenate results from all samples into a single batch tensor
+        result = torch.cat(out_list, dim=0)    # (batch, n_times, n_species)
 
-if __name__ == '__main__':
-    # Example usage: Instantiate model and run a dummy forward pass
-    print(f"Using device: {DEVICE}")
-    model = Transesterformer(
-        n_conditions=len(CONDITION_COLS),
-        ode_options={'rtol': 1e-3, 'atol': 1e-3} # Example options
-    ).to(DEVICE)
+        # Store the regularization loss from the last ODE solve in the loop
+        # Note: This only stores the loss from the *last* sample.
+        # A more accurate approach would be to average the loss across the batch.
+        # This could be done by accumulating loss inside the loop or modifying
+        # the training loop to handle loss calculation differently.
+        # For now, we keep the existing behavior.
+        self.neural_reg_loss = self.ode_func.latest_neural_reg_loss
+        return result
 
-    print("\nModel Architecture:")
-    print(model)
+# -------------------------------------------------------------------------
+# Example Usage / Testing Block
+if __name__ == "__main__":
+    print(f"Testing Transesterformer on {DEVICE}")
+    # Instantiate the model with default parameters
+    model = Transesterformer(ode_options={"rtol":1e-3,"atol":1e-3}).to(DEVICE)
 
-    # Dummy data for one batch of 2 experiments
-    batch_size = 2
-    n_times = 10
-    dummy_initial_c = torch.rand(batch_size, N_SPECIES, device=DEVICE) * 2 # Random initial concentrations
-    dummy_times = torch.linspace(0, 5, n_times, device=DEVICE) # 0 to 5 hours
-    dummy_conditions = torch.rand(batch_size, len(CONDITION_COLS), device=DEVICE) # Random conditions
+    # Create dummy input data
+    B, T = 2, 10 # Batch size = 2, Time points = 10
+    # Initial conditions (Batch, Species)
+    ic = torch.rand(B, N_SPECIES, device=DEVICE)
+    # Time vector (Time points,)
+    tv = torch.linspace(0, 5, T, device=DEVICE)
+    # Conditions (Batch, Conditions)
+    conds = torch.rand(B, len(CONDITION_COLS), device=DEVICE)
 
-    print("\nRunning dummy forward pass...")
-    try:
-        with torch.no_grad(): # No need to track gradients for this test
-            predictions = model(dummy_initial_c, dummy_times, dummy_conditions)
-        print(f"Output prediction shape: {predictions.shape}") # Expected: (batch_size, n_times, n_species)
-        assert predictions.shape == (batch_size, n_times, N_SPECIES)
-        print("Dummy forward pass successful.")
-        print(f"Neural regularization loss term: {model.neural_reg_loss.item()}")
+    # Perform a forward pass without gradient calculation
+    with torch.no_grad():
+        out = model(ic, tv, conds)
 
-    except Exception as e:
-        print(f"Error during dummy forward pass: {e}")
-        import traceback
-        traceback.print_exc()
+    # Print the output shape
+    print("Input IC shape:", ic.shape)
+    print("Input times shape:", tv.shape)
+    print("Input conditions shape:", conds.shape)
+    print("Output shape:", out.shape) # Expected: (B, T, N_SPECIES) -> (2, 10, 6)
+    print("Neural Reg Loss (last sample):", model.neural_reg_loss.item())
 

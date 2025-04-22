@@ -1,16 +1,9 @@
 # src/data_loader.py
 """
 Handles loading, preprocessing, and batching of the kinetic data.
-
-Key fixes
-• Added missing denormalize_* imports.
-• Recomputed normalization statistics from the actual dataset and pushed
-  the new tensors into both constants and utils so every module sees
-  consistent values.
-• Safer masking when NaNs are present.
-• Clearer logging and error handling.
 """
 
+from __future__ import annotations
 import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -31,8 +24,8 @@ from .utils import (
     normalize_conditions,
     normalize_species,
     convert_mass_fraction_to_molar,
-    denormalize_conditions,   # newly imported
-    denormalize_species,      # newly imported
+    denormalize_conditions,
+    denormalize_species,
 )
 
 # expose modules so we can update their globals after computing stats
@@ -53,12 +46,18 @@ class BiodieselKineticsDataset(Dataset):
 
         self._calculate_normalization_stats()
 
-    # --------------------------------------------------------------------- #
-    # Loading and basic cleaning                                            #
-    # --------------------------------------------------------------------- #
+    # ------------------------------------------------------------------ #
+    # Loading and basic cleaning                                         #
+    # ------------------------------------------------------------------ #
     def _load_and_process_data(self):
         try:
-            df = pd.read_csv(self.data_path)
+            # -------------- ONLY CHANGE: comment='#' ---------------------
+            df = pd.read_csv(
+                self.data_path,
+                comment="#",          # skip lines that start with '#'
+                skip_blank_lines=True
+            )
+            # -------------------------------------------------------------
             print(f"Loaded data with columns: {df.columns.tolist()}")
         except FileNotFoundError as e:
             raise FileNotFoundError(f"Data file not found at {self.data_path}") from e
@@ -103,7 +102,9 @@ class BiodieselKineticsDataset(Dataset):
             raw_species = g[SPECIES_COLS].values
             mask = ~np.isnan(raw_species)
             filled_species = np.nan_to_num(raw_species, nan=0.0)
-            species_norm = normalize_species(pd.DataFrame(filled_species, columns=SPECIES_COLS)).to(self.device)
+            species_norm = normalize_species(pd.DataFrame(filled_species, columns=SPECIES_COLS)).to(
+                self.device
+            )
             mask_tensor = torch.tensor(mask, dtype=torch.bool, device=self.device)
 
             experiments.append(
@@ -121,9 +122,9 @@ class BiodieselKineticsDataset(Dataset):
         print(f"Successfully processed {len(experiments)} experiments.")
         return experiments
 
-    # --------------------------------------------------------------------- #
-    # Normalization statistics                                              #
-    # --------------------------------------------------------------------- #
+    # ------------------------------------------------------------------ #
+    # Normalization statistics (unchanged)                               #
+    # ------------------------------------------------------------------ #
     def _calculate_normalization_stats(self):
         if not USE_NORMALIZATION:
             print("Global normalization disabled — using predefined constants.")
@@ -134,7 +135,6 @@ class BiodieselKineticsDataset(Dataset):
             cond_rows.append(
                 denormalize_conditions(exp["conditions"].unsqueeze(0)).cpu().numpy()
             )
-
             spec_full = denormalize_species(exp["species_norm"]).reshape(-1, N_SPECIES)
             valid_mask = exp["mask"].cpu().numpy().reshape(-1, N_SPECIES)
             valid_rows = spec_full[valid_mask.all(axis=1)]

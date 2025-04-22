@@ -1,0 +1,8 @@
+torch==2.2.2
+numpy<2
+pandas
+matplotlib
+tqdm
+torchdiffeq==0.2.3
+scipy
+
