@@ -1,0 +1,1434 @@
+
+
+========== FILE: run_training.py ==========
+# run_training.py
+"""
+Main script to start the training process.
+"""
+import os
+import argparse
+from src.train import run_training_pipeline
+from src.constants import DATA_PATH, MODEL_SAVE_DIR
+
+def main():
+    parser = argparse.ArgumentParser(description="Train Transesterformer Model")
+    parser.add_argument('--data_path', type=str, default=DATA_PATH,
+                        help='Path to the processed kinetic data CSV file.')
+    parser.add_argument('--load_model', type=str, default=None, # Example: 'results/model_checkpoint/best_model.pth'
+                        help='Path to a checkpoint file to resume training.')
+    parser.add_argument('--force_cpu', action='store_true',
+                        help='Force using CPU even if CUDA is available.')
+
+    args = parser.parse_args()
+
+    # --- Device Setup ---
+    if args.force_cpu:
+        import torch
+        from src import constants
+        constants.DEVICE = torch.device("cpu")
+        # Need to potentially reload modules if DEVICE was used at import time
+        # This is tricky, better to set device early or pass it around.
+        # For simplicity, we assume constants.py sets DEVICE correctly based on initial check.
+        # If forcing CPU, ensure constants.DEVICE reflects this before model/data loading.
+        print("Forcing CPU usage.")
+        # Update constants directly (use with caution)
+        import src.constants
+        src.constants.DEVICE = torch.device("cpu")
+
+
+    # --- Create result directories if they don't exist ---
+    if not os.path.exists(MODEL_SAVE_DIR):
+        os.makedirs(MODEL_SAVE_DIR)
+    if not os.path.exists(os.path.join("results", "figures")): # Ensure figure dir exists
+         os.makedirs(os.path.join("results", "figures"))
+
+
+    # --- Run Training ---
+    run_training_pipeline(
+        data_path=args.data_path,
+        model_load_path=args.load_model
+    )
+
+if __name__ == "__main__":
+    main()
+
+
+========== FILE: all_files.py ==========
+import os
+
+def dump_all_files_with_contents(root_dir, output_file):
+    with open(output_file, 'w', encoding='utf-8') as out:
+        for current_dir, _, files in os.walk(root_dir):
+            for file in files:
+                file_path = os.path.join(current_dir, file)
+                rel_path = os.path.relpath(file_path, root_dir)
+                
+                out.write(f"\n\n========== FILE: {rel_path} ==========\n")
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        contents = f.read()
+                        out.write(contents)
+                except Exception as e:
+                    out.write(f"[ERROR READING FILE: {e}]")
+
+if __name__ == "__main__":
+    current_folder = os.path.dirname(os.path.abspath(__file__))
+    output_txt = os.path.join(current_folder, "all_files_with_contents.txt")
+
+    dump_all_files_with_contents(current_folder, output_txt)
+    print(f"✅ Dump complete. Output saved to: {output_txt}")
+
+
+========== FILE: all_files_with_contents.txt ==========
+
+
+========== FILE: data/processed/kinetic_data.csv ==========
+# Example CSV data illustrating typical ranges for enzymatic biodiesel production
+# Concentrations are illustrative examples in mol/L (assuming initial TG ~1.1 mol/L)
+# Conditions reflect common experimental ranges.
+experiment_id,time,temperature,methanol_oil_ratio,enzyme_loading,stirring_rate,TG,DG,MG,FAME,Gly,MeOH
+WasteOil_45C_5to1_10pct_300rpm,0.0,45.0,5.0,10.0,300.0,1.10,0.00,0.00,0.00,0.00,5.50
+WasteOil_45C_5to1_10pct_300rpm,1.0,45.0,5.0,10.0,300.0,0.85,0.15,0.02,0.28,0.09,5.22
+WasteOil_45C_5to1_10pct_300rpm,2.0,45.0,5.0,10.0,300.0,0.65,0.25,0.05,0.65,0.22,4.85
+WasteOil_45C_5to1_10pct_300rpm,4.0,45.0,5.0,10.0,300.0,0.30,0.20,0.10,1.50,0.50,4.00
+WasteOil_45C_5to1_10pct_300rpm,8.0,45.0,5.0,10.0,300.0,0.10,0.08,0.07,2.55,0.85,2.95
+WasteOil_45C_5to1_10pct_300rpm,12.0,45.0,5.0,10.0,300.0,0.05,0.04,0.04,2.85,0.95,2.65
+WasteOil_45C_5to1_10pct_300rpm,24.0,45.0,5.0,10.0,300.0,0.02,0.02,0.02,3.10,1.03,2.40
+WasteOil_55C_4to1_8pct_400rpm,0.0,55.0,4.0,8.0,400.0,1.10,0.00,0.00,0.00,0.00,4.40
+WasteOil_55C_4to1_8pct_400rpm,0.5,55.0,4.0,8.0,400.0,0.90,0.12,0.01,0.21,0.07,4.19
+WasteOil_55C_4to1_8pct_400rpm,1.0,55.0,4.0,8.0,400.0,0.70,0.20,0.04,0.54,0.18,3.86
+WasteOil_55C_4to1_8pct_400rpm,2.0,55.0,4.0,8.0,400.0,0.40,0.22,0.08,1.20,0.40,3.20
+WasteOil_55C_4to1_8pct_400rpm,4.0,55.0,4.0,8.0,400.0,0.15,0.10,0.08,2.25,0.75,2.15
+WasteOil_55C_4to1_8pct_400rpm,8.0,55.0,4.0,8.0,400.0,0.05,0.04,0.04,2.85,0.95,1.55
+WasteOil_55C_4to1_8pct_400rpm,12.0,55.0,4.0,8.0,400.0,0.03,0.02,0.02,3.03,1.01,1.37
+
+
+========== FILE: data/raw/raw.txt ==========
+
+
+========== FILE: src/constants.py ==========
+# src/constants.py
+"""
+Defines constants used throughout the project, including physical constants,
+species names, expected data columns, and model hyperparameters.
+"""
+
+import torch
+
+# --- Physical/Chemical Constants ---
+# Approximate Molecular Weights (g/mol) - Adjust based on the specific oil used!
+# Assuming average values for a typical vegetable oil (like soybean or sunflower)
+MW_OIL = 875.0  # Average MW of Triglyceride (e.g., Triolein C57H104O6)
+MW_MEOH = 32.04 # Methanol
+MW_FAME = 296.0 # Average MW of Methyl Ester (e.g., Methyl Oleate C19H36O2)
+MW_GLY = 92.09  # Glycerol
+
+# --- Species Names & Indices ---
+# Ensure these match the columns in your processed data CSV
+SPECIES = ['TG', 'DG', 'MG', 'FAME', 'Gly', 'MeOH'] # Order matters!
+SPECIES_MAP = {name: i for i, name in enumerate(SPECIES)}
+N_SPECIES = len(SPECIES)
+
+# --- Data Columns ---
+# Columns expected in the input CSV data/processed/kinetic_data.csv
+TIME_COL = 'time'
+EXP_ID_COL = 'experiment_id'
+CONDITION_COLS = ['temperature', 'methanol_oil_ratio', 'enzyme_loading', 'stirring_rate'] # Input conditions
+SPECIES_COLS = SPECIES # Output species concentrations
+
+# --- Model Hyperparameters ---
+# Neural ODE settings
+NODE_HIDDEN_DIM = 64   # Hidden dimension of the neural network within the ODE function
+NODE_N_LAYERS = 2      # Number of hidden layers in the ODE function's network
+NODE_ACTIVATION = torch.nn.Tanh # Activation function
+
+# Condition Encoder settings
+ENCODER_HIDDEN_DIM = 32
+ENCODER_N_LAYERS = 2
+ENCODER_OUTPUT_DIM = 16 # Dimension of the encoded condition vector
+
+# Symbolic Kinetics Parameters (Initial guesses or bounds if needed)
+# These might be learned or fixed depending on the model variant
+INITIAL_K_CAT_GUESS = 1.0 # Example initial guess for catalytic constants
+INITIAL_KM_GUESS = 0.1    # Example initial guess for Michaelis constants
+
+# --- Training Hyperparameters ---
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+BATCH_SIZE = 16      # Number of experiments per batch
+N_EPOCHS = 500       # Total training epochs
+LEARNING_RATE = 1e-3
+WEIGHT_DECAY = 1e-5  # L2 regularization
+ODE_SOLVER = 'dopri5' # Choose from 'dopri5', 'adams', 'rk4' etc. (torchdiffeq)
+ODE_TOLERANCE = 1e-4 # Solver tolerance (rtol=atol=ODE_TOLERANCE)
+PRINT_FREQ = 10      # Print loss every N epochs
+SAVE_FREQ = 50       # Save model checkpoint every N epochs
+
+# Physics-based Loss Weights (tune these carefully)
+LAMBDA_MASS_BALANCE = 0.0 # Weight for mass balance penalty (can be 0 if enforced by structure)
+LAMBDA_RATE_REG = 1e-6    # Regularization on the magnitude of neural rate corrections
+
+# --- File Paths ---
+DATA_PATH = "data/processed/kinetic_data.csv"
+MODEL_SAVE_DIR = "results/model_checkpoint/"
+FIGURE_SAVE_DIR = "results/figures/"
+
+# --- Stoichiometry ---
+# Represents the net change in moles for each species per mole of reaction progress
+# Reactions:
+# 1: TG + MeOH <-> DG + FAME
+# 2: DG + MeOH <-> MG + FAME
+# 3: MG + MeOH <-> Gly + FAME
+# Columns: TG, DG, MG, FAME, Gly, MeOH
+STOICHIOMETRY_MATRIX = torch.tensor([
+    [-1,  1,  0,  1,  0, -1], # Reaction 1
+    [ 0, -1,  1,  1,  0, -1], # Reaction 2
+    [ 0,  0, -1,  1,  1, -1], # Reaction 3
+], dtype=torch.float32, device=DEVICE)
+N_REACTIONS = STOICHIOMETRY_MATRIX.shape[0]
+
+# --- Normalization ---
+# Define means and stds for conditions and species if using normalization
+# These should ideally be calculated from the training data
+# Example placeholders (replace with actual values calculated in data_loader):
+CONDITION_MEANS = torch.tensor([45.0, 4.5, 10.0, 300.0], device=DEVICE) # Temp, Ratio, Enzyme, Stir
+CONDITION_STDS = torch.tensor([10.0, 1.5, 5.0, 100.0], device=DEVICE)
+SPECIES_MEANS = torch.tensor([0.5, 0.2, 0.1, 0.5, 0.1, 2.0], device=DEVICE) # TG, DG, MG, FAME, Gly, MeOH (mol/L)
+SPECIES_STDS = torch.tensor([0.4, 0.2, 0.1, 0.4, 0.1, 1.0], device=DEVICE)
+USE_NORMALIZATION = True # Set to False if you don't want normalization
+
+
+
+========== FILE: src/model.py ==========
+# src/model.py
+"""
+Defines the Physics-Guided Neural ODE model ("Transesterformer").
+Includes the condition encoder, the symbolic kinetics part, the neural augmentation part,
+and the overall ODE function.
+"""
+import torch
+import torch.nn as nn
+from torchdiffeq import odeint_adjoint as odeint # Use adjoint method for memory efficiency
+# from torchdiffeq import odeint # Use standard odeint if adjoint causes issues
+
+from .constants import (
+    N_SPECIES, N_REACTIONS, CONDITION_COLS, NODE_HIDDEN_DIM, NODE_N_LAYERS, NODE_ACTIVATION,
+    ENCODER_HIDDEN_DIM, ENCODER_N_LAYERS, ENCODER_OUTPUT_DIM, STOICHIOMETRY_MATRIX,
+    DEVICE, SPECIES_MAP, MW_MEOH, MW_OIL, MW_FAME, MW_GLY, LAMBDA_RATE_REG
+)
+
+class ConditionEncoder(nn.Module):
+    """Encodes high-dimensional condition vector into a lower-dimensional latent space."""
+    def __init__(self, input_dim, hidden_dim, output_dim, n_layers):
+        super().__init__()
+        layers = []
+        layers.append(nn.Linear(input_dim, hidden_dim))
+        layers.append(nn.ReLU()) # Use ReLU for encoder
+        for _ in range(n_layers - 1):
+            layers.append(nn.Linear(hidden_dim, hidden_dim))
+            layers.append(nn.ReLU())
+        layers.append(nn.Linear(hidden_dim, output_dim))
+        self.net = nn.Sequential(*layers)
+
+    def forward(self, conditions):
+        """
+        Args:
+            conditions (torch.Tensor): Shape (batch_size, n_conditions)
+        Returns:
+            torch.Tensor: Shape (batch_size, output_dim)
+        """
+        return self.net(conditions)
+
+class SymbolicKinetics(nn.Module):
+    """
+    Implements the symbolic part of the reaction kinetics (e.g., Ping-Pong Bi-Bi).
+    Kinetic parameters can be modulated by the encoded conditions.
+    """
+    def __init__(self, encoded_condition_dim):
+        super().__init__()
+        # Example: Learnable base parameters (these could be fixed if known)
+        # We make Vmax and Km dependent on conditions via small networks
+        self.vmax_net = nn.Linear(encoded_condition_dim, N_REACTIONS) # Predict Vmax for each reaction
+        self.km_tg_net = nn.Linear(encoded_condition_dim, 1) # Km for TG (assuming same for R1)
+        self.km_dg_net = nn.Linear(encoded_condition_dim, 1) # Km for DG (assuming same for R2)
+        self.km_mg_net = nn.Linear(encoded_condition_dim, 1) # Km for MG (assuming same for R3)
+        self.km_meoh_net = nn.Linear(encoded_condition_dim, N_REACTIONS) # Km for MeOH for each reaction
+        self.k_inhibition_meoh_net = nn.Linear(encoded_condition_dim, N_REACTIONS) # Inhibition constant for MeOH
+
+        # Activation to ensure positivity of parameters
+        self.softplus = nn.Softplus()
+
+    def forward(self, species, encoded_conditions):
+        """
+        Calculates reaction rates based on symbolic kinetics.
+        Args:
+            species (torch.Tensor): Current species concentrations (batch_size, n_species)
+            encoded_conditions (torch.Tensor): Encoded condition vector (batch_size, encoded_dim)
+        Returns:
+            torch.Tensor: Reaction rates (batch_size, n_reactions)
+        """
+        # Predict condition-dependent parameters
+        # Use softplus to ensure positivity
+        vmax = self.softplus(self.vmax_net(encoded_conditions)) # (batch_size, n_reactions)
+        km_tg = self.softplus(self.km_tg_net(encoded_conditions)) # (batch_size, 1)
+        km_dg = self.softplus(self.km_dg_net(encoded_conditions)) # (batch_size, 1)
+        km_mg = self.softplus(self.km_mg_net(encoded_conditions)) # (batch_size, 1)
+        km_meoh = self.softplus(self.km_meoh_net(encoded_conditions)) # (batch_size, n_reactions)
+        k_inhibition_meoh = self.softplus(self.k_inhibition_meoh_net(encoded_conditions)) # (batch_size, n_reactions)
+
+        # Extract individual species concentrations for clarity
+        # Ensure species are non-negative before using in denominators
+        tg = torch.relu(species[:, SPECIES_MAP['TG']])
+        dg = torch.relu(species[:, SPECIES_MAP['DG']])
+        mg = torch.relu(species[:, SPECIES_MAP['MG']])
+        meoh = torch.relu(species[:, SPECIES_MAP['MeOH']])
+        # FAME and Gly are products, don't typically inhibit in simple models
+
+        # --- Simplified Ping-Pong Bi-Bi Kinetics with Methanol Inhibition ---
+        # Rate = Vmax * [A] * [B] / (KmB*[A] + KmA*[B] + [A]*[B] * (1 + [I]/Ki))
+        # This is a simplified representation. A full Ping-Pong model is more complex.
+        # We'll use a Michaelis-Menten like form for each step for simplicity here.
+        # Rate_i = Vmax_i * (Substrate1 / (Km1 + Substrate1)) * (Substrate2 / (Km2 + Substrate2)) * InhibitionTerm
+
+        epsilon = 1e-8 # Small value to prevent division by zero
+
+        # Reaction 1: TG + MeOH -> DG + FAME
+        denom1 = (km_tg + tg) * (km_meoh[:, 0] + meoh) * (1 + meoh / (k_inhibition_meoh[:, 0] + epsilon))
+        rate1 = vmax[:, 0] * (tg / (km_tg + tg + epsilon)) * (meoh / (km_meoh[:, 0] + meoh + epsilon))
+        # Simpler alternative: rate1 = vmax[:, 0] * tg * meoh / (denom1 + epsilon) # Check literature for exact form
+
+        # Reaction 2: DG + MeOH -> MG + FAME
+        denom2 = (km_dg + dg) * (km_meoh[:, 1] + meoh) * (1 + meoh / (k_inhibition_meoh[:, 1] + epsilon))
+        rate2 = vmax[:, 1] * (dg / (km_dg + dg + epsilon)) * (meoh / (km_meoh[:, 1] + meoh + epsilon))
+
+        # Reaction 3: MG + MeOH -> Gly + FAME
+        denom3 = (km_mg + mg) * (km_meoh[:, 2] + meoh) * (1 + meoh / (k_inhibition_meoh[:, 2] + epsilon))
+        rate3 = vmax[:, 2] * (mg / (km_mg + mg + epsilon)) * (meoh / (km_meoh[:, 2] + meoh + epsilon))
+
+        # Combine rates - ensure shape is (batch_size, n_reactions)
+        rates = torch.stack([rate1, rate2, rate3], dim=1)
+
+        # Ensure rates are non-negative
+        rates = torch.relu(rates)
+
+        return rates
+
+
+class NeuralAugmentation(nn.Module):
+    """
+    Learns residual dynamics (corrections) not captured by the symbolic part.
+    Uses a simple MLP.
+    """
+    def __init__(self, n_species, encoded_condition_dim, hidden_dim, n_layers, activation):
+        super().__init__()
+        input_dim = n_species + encoded_condition_dim
+        layers = []
+        layers.append(nn.Linear(input_dim, hidden_dim))
+        layers.append(activation())
+        for _ in range(n_layers - 1):
+            layers.append(nn.Linear(hidden_dim, hidden_dim))
+            layers.append(activation())
+        # Output dimension should match the number of reactions or species,
+        # depending on how corrections are applied. Here, assume corrections per reaction.
+        layers.append(nn.Linear(hidden_dim, N_REACTIONS))
+        self.net = nn.Sequential(*layers)
+
+    def forward(self, species, encoded_conditions):
+        """
+        Args:
+            species (torch.Tensor): Current species concentrations (batch_size, n_species)
+            encoded_conditions (torch.Tensor): Encoded condition vector (batch_size, encoded_dim)
+        Returns:
+            torch.Tensor: Rate corrections (batch_size, n_reactions)
+        """
+        # Concatenate species and conditions as input
+        net_input = torch.cat([species, encoded_conditions], dim=1)
+        corrections = self.net(net_input)
+        return corrections
+
+
+class TransesterformerODE(nn.Module):
+    """
+    The combined ODE function dC/dt = f(C, t, conditions).
+    Uses the symbolic kinetics and neural augmentation.
+    """
+    def __init__(self, encoded_condition_dim, node_hidden_dim, node_n_layers, node_activation):
+        super().__init__()
+        self.encoded_condition_dim = encoded_condition_dim
+        self.symbolic_kinetics = SymbolicKinetics(encoded_condition_dim)
+        self.neural_augmentation = NeuralAugmentation(
+            N_SPECIES, encoded_condition_dim, node_hidden_dim, node_n_layers, node_activation
+        )
+        # Ensure stoichiometry matrix is on the correct device
+        self.stoichiometry = STOICHIOMETRY_MATRIX.to(DEVICE)
+
+        # Store encoded conditions - these are set externally per batch/experiment
+        self._encoded_conditions = None
+        self._batch_size = None
+
+    def set_conditions(self, encoded_conditions):
+        """Stores the encoded conditions for the current batch/integration."""
+        self._encoded_conditions = encoded_conditions
+        self._batch_size = encoded_conditions.shape[0]
+
+
+    def forward(self, t, species):
+        """
+        Calculates dC/dt.
+        Args:
+            t (torch.Tensor): Current time (scalar, ignored by autonomous ODE).
+            species (torch.Tensor): Current species concentrations (batch_size, n_species).
+                                     Shape might be just (n_species,) during integration per sample.
+        Returns:
+            torch.Tensor: Time derivatives dC/dt (batch_size, n_species).
+        """
+        # Handle potential shape difference during integration
+        is_batch = species.dim() == 2
+        current_batch_size = species.shape[0] if is_batch else 1
+
+        if self._encoded_conditions is None:
+            raise RuntimeError("Encoded conditions not set before calling ODE function.")
+
+        # Ensure encoded conditions match the batch size being processed by the solver
+        if is_batch:
+            if current_batch_size != self._batch_size:
+                 # This might happen if the solver calls with a different batch structure?
+                 # Or if called outside the main training loop without setting conditions.
+                 # For simplicity, assume conditions are correctly set per batch.
+                 # If issues arise, may need to pass conditions explicitly or handle slicing.
+                 print(f"Warning: Batch size mismatch in ODE forward. Expected {self._batch_size}, got {current_batch_size}.")
+                 # Use the first condition if sizes mismatch (potential issue)
+                 encoded_conditions_batch = self._encoded_conditions[0:1].expand(current_batch_size, -1)
+
+            else:
+                 encoded_conditions_batch = self._encoded_conditions
+        else:
+            # If input is single sample (n_species,), use the corresponding condition
+            # This assumes the solver integrates sample by sample or we handle batching outside
+            # For simplicity, assume conditions are batched correctly matching species input
+            if self._batch_size == 1:
+                 encoded_conditions_batch = self._encoded_conditions
+                 species = species.unsqueeze(0) # Add batch dim
+            else:
+                 # This case is tricky - which condition corresponds to this single species vector?
+                 # Assumes called within a loop where conditions are correctly sliced/indexed.
+                 # Fallback: Use the first condition (likely wrong if batch > 1)
+                 # encoded_conditions_batch = self._encoded_conditions[0:1]
+                 # species = species.unsqueeze(0) # Add batch dim
+                 # Better approach: Ensure ODE is always called with batched species & conditions
+                 raise RuntimeError("ODE function called with unbatched species but batch conditions > 1.")
+
+
+        # 1. Calculate symbolic rates
+        symbolic_rates = self.symbolic_kinetics(species, encoded_conditions_batch)
+
+        # 2. Calculate neural corrections
+        neural_corrections = self.neural_augmentation(species, encoded_conditions_batch)
+
+        # Regularization for neural corrections (can be added to main loss instead)
+        self.latest_neural_reg_loss = LAMBDA_RATE_REG * torch.mean(neural_corrections**2)
+
+        # 3. Combine rates
+        # Option A: Neural net predicts correction factor (multiplicative)
+        # total_rates = symbolic_rates * (1 + neural_corrections) # Needs careful scaling/activation
+        # Option B: Neural net predicts additive correction
+        total_rates = symbolic_rates + neural_corrections # (batch_size, n_reactions)
+
+        # Ensure total rates are physically plausible (e.g., non-negative if reactions are irreversible)
+        total_rates = torch.relu(total_rates) # Assuming forward reactions only
+
+        # 4. Calculate dC/dt using stoichiometry
+        # dC/dt = S * R
+        # S: (n_species, n_reactions), R: (batch_size, n_reactions)
+        # Need S.T: (n_reactions, n_species)
+        # dC/dt: (batch_size, n_reactions) @ (n_reactions, n_species) -> (batch_size, n_species)
+        dCdt = total_rates @ self.stoichiometry.T # Use transpose of defined S
+
+        # Return derivatives, remove batch dim if input was single sample
+        return dCdt.squeeze(0) if not is_batch else dCdt
+
+
+class Transesterformer(nn.Module):
+    """
+    The main model class orchestrating the encoder and the Neural ODE.
+    """
+    def __init__(self, n_conditions=len(CONDITION_COLS),
+                 encoder_hidden_dim=ENCODER_HIDDEN_DIM,
+                 encoder_output_dim=ENCODER_OUTPUT_DIM,
+                 encoder_n_layers=ENCODER_N_LAYERS,
+                 node_hidden_dim=NODE_HIDDEN_DIM,
+                 node_n_layers=NODE_N_LAYERS,
+                 node_activation=NODE_ACTIVATION,
+                 ode_solver=None, # Pass solver params from train script
+                 ode_options=None):
+        super().__init__()
+        self.encoder = ConditionEncoder(n_conditions, encoder_hidden_dim, encoder_output_dim, encoder_n_layers)
+        self.ode_func = TransesterformerODE(encoder_output_dim, node_hidden_dim, node_n_layers, node_activation)
+        self.ode_solver = ode_solver if ode_solver else 'dopri5' # Default solver
+        self.ode_options = ode_options if ode_options else {} # Default options
+
+        # Placeholder for regularization loss from ODE func
+        self.neural_reg_loss = torch.tensor(0.0, device=DEVICE)
+
+
+    def forward(self, initial_conditions, times, conditions):
+        """
+        Performs forward pass: encodes conditions and solves the ODE.
+        Args:
+            initial_conditions (torch.Tensor): Initial species concentrations C(t=0)
+                                               Shape (batch_size, n_species)
+            times (torch.Tensor): Time points to evaluate the solution at.
+                                  Shape (n_times,) - MUST be sorted.
+            conditions (torch.Tensor): Condition vectors for each experiment.
+                                       Shape (batch_size, n_conditions)
+        Returns:
+            torch.Tensor: Predicted species concentrations over time.
+                          Shape (batch_size, n_times, n_species)
+        """
+        # 1. Encode conditions
+        encoded_conditions = self.encoder(conditions) # (batch_size, encoded_dim)
+
+        # 2. Set conditions in ODE function for this batch
+        self.ode_func.set_conditions(encoded_conditions)
+
+        # 3. Solve the ODE system
+        # odeint expects initial conditions (batch, dim), times (times,)
+        # It returns (times, batch, dim) -> permute to (batch, times, dim)
+        pred_species_over_time = odeint(
+            self.ode_func,
+            initial_conditions,
+            times,
+            method=self.ode_solver,
+            options=self.ode_options,
+            # rtol=self.ode_options.get('rtol', 1e-4), # Pass tolerances via options
+            # atol=self.ode_options.get('atol', 1e-4)
+        )
+
+        # Retrieve regularization loss calculated during ODE forward calls
+        # Note: This might only capture the loss from the last step if not careful.
+        # A better way might be to accumulate it within the ODE func or recalculate.
+        # For simplicity, we use the last stored value.
+        self.neural_reg_loss = self.ode_func.latest_neural_reg_loss if hasattr(self.ode_func, 'latest_neural_reg_loss') else torch.tensor(0.0, device=DEVICE)
+
+
+        # Permute output to (batch_size, n_times, n_species)
+        pred_species_over_time = pred_species_over_time.permute(1, 0, 2)
+
+        return pred_species_over_time
+
+
+if __name__ == '__main__':
+    # Example usage: Instantiate model and run a dummy forward pass
+    print(f"Using device: {DEVICE}")
+    model = Transesterformer(
+        n_conditions=len(CONDITION_COLS),
+        ode_options={'rtol': 1e-3, 'atol': 1e-3} # Example options
+    ).to(DEVICE)
+
+    print("\nModel Architecture:")
+    print(model)
+
+    # Dummy data for one batch of 2 experiments
+    batch_size = 2
+    n_times = 10
+    dummy_initial_c = torch.rand(batch_size, N_SPECIES, device=DEVICE) * 2 # Random initial concentrations
+    dummy_times = torch.linspace(0, 5, n_times, device=DEVICE) # 0 to 5 hours
+    dummy_conditions = torch.rand(batch_size, len(CONDITION_COLS), device=DEVICE) # Random conditions
+
+    print("\nRunning dummy forward pass...")
+    try:
+        with torch.no_grad(): # No need to track gradients for this test
+            predictions = model(dummy_initial_c, dummy_times, dummy_conditions)
+        print(f"Output prediction shape: {predictions.shape}") # Expected: (batch_size, n_times, n_species)
+        assert predictions.shape == (batch_size, n_times, N_SPECIES)
+        print("Dummy forward pass successful.")
+        print(f"Neural regularization loss term: {model.neural_reg_loss.item()}")
+
+    except Exception as e:
+        print(f"Error during dummy forward pass: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+
+========== FILE: src/train.py ==========
+# src/train.py
+"""
+Contains the main training loop, loss calculation, validation, and plotting logic.
+"""
+import torch
+import torch.optim as optim
+import torch.nn as nn
+import numpy as np
+import time
+import os
+from tqdm import tqdm # Progress bar
+
+from .constants import (
+    DEVICE, N_EPOCHS, LEARNING_RATE, WEIGHT_DECAY, PRINT_FREQ, SAVE_FREQ,
+    ODE_SOLVER, ODE_TOLERANCE, LAMBDA_MASS_BALANCE,
+    MODEL_SAVE_DIR, FIGURE_SAVE_DIR, N_SPECIES
+)
+from .model import Transesterformer
+from .data_loader import get_dataloader
+from .utils import (
+    denormalize_species, denormalize_conditions, plot_predictions,
+    save_checkpoint, load_checkpoint, USE_NORMALIZATION
+)
+
+def calculate_loss(predictions, targets, mask, model):
+    """
+    Calculates the loss, considering masking for missing values and physics constraints.
+
+    Args:
+        predictions (torch.Tensor): Model output (batch_size, n_times, n_species)
+        targets (torch.Tensor): Ground truth species data (batch_size, n_times, n_species)
+                                (NaNs filled with 0, use mask)
+        mask (torch.Tensor): Boolean mask indicating valid data points
+                             (batch_size, n_times, n_species)
+        model (nn.Module): The Transesterformer model instance (to access reg loss).
+
+    Returns:
+        torch.Tensor: The total calculated loss.
+        torch.Tensor: The data fidelity loss (MSE on valid points).
+    """
+    # Ensure mask is boolean
+    mask = mask.bool()
+
+    # 1. Data Fidelity Loss (Masked MSE)
+    # Calculate squared error only for valid points indicated by the mask
+    error = predictions - targets
+    masked_error = error * mask # Zero out errors for invalid points
+    
+    # Calculate MSE only over valid points
+    # Sum of squared errors over valid points / number of valid points
+    loss_data = torch.sum(masked_error**2) / torch.sum(mask).clamp(min=1) # Avoid division by zero if mask is all False
+
+    # 2. Physics Regularization Loss (from ODE function)
+    loss_reg_neural = model.neural_reg_loss # Get the stored reg loss
+
+    # 3. Optional: Mass Balance Penalty (if not structurally enforced)
+    # This requires calculating total moles of fatty acid chains at each time step
+    # Example: Check if sum(TG*3 + DG*2 + MG*1 + FAME*1) is constant
+    loss_mass_balance = torch.tensor(0.0, device=DEVICE)
+    if LAMBDA_MASS_BALANCE > 0:
+         # This calculation needs denormalized values and initial moles
+         # It's complex to implement correctly here, especially with normalization.
+         # For now, assume mass balance is structurally enforced or ignore this term.
+         pass # Placeholder for mass balance calculation
+
+
+    # 4. Total Loss
+    total_loss = loss_data + loss_reg_neural + LAMBDA_MASS_BALANCE * loss_mass_balance
+
+    return total_loss, loss_data
+
+
+def train_epoch(model, dataloader, optimizer, epoch):
+    """Runs one epoch of training."""
+    model.train()
+    total_loss_epoch = 0.0
+    total_data_loss_epoch = 0.0
+    start_time = time.time()
+
+    # Use tqdm for progress bar
+    pbar = tqdm(dataloader, desc=f"Epoch {epoch+1}/{N_EPOCHS} [Training]", leave=False)
+
+    for i, batch in enumerate(pbar):
+        optimizer.zero_grad()
+        batch_loss_total = torch.tensor(0.0, device=DEVICE)
+        batch_loss_data = torch.tensor(0.0, device=DEVICE)
+        n_samples_in_batch = len(batch)
+
+        # Process each experiment in the batch individually
+        # (because odeint typically handles batches, but our data structure is list of dicts)
+        # Alternatively, pad sequences and batch properly if performance is critical.
+        for exp_data in batch:
+            initial_cond = exp_data['initial_conditions'].unsqueeze(0) # Add batch dim of 1
+            times = exp_data['times']
+            conditions = exp_data['conditions'].unsqueeze(0) # Add batch dim of 1
+            targets = exp_data['species_norm'].unsqueeze(0) # Add batch dim of 1
+            mask = exp_data['mask'].unsqueeze(0) # Add batch dim of 1
+
+            # Ensure times are sorted and start from t=0 if needed by solver
+            if times[0] != 0:
+                 # This indicates an issue in data prep or assumptions
+                 print(f"Warning: Experiment {exp_data['exp_id']} times do not start at 0 ({times[0]}). Adjusting.")
+                 # Option 1: Shift times (if relative time is okay)
+                 # times = times - times[0]
+                 # Option 2: Prepend t=0 (requires knowing C(t=0) accurately)
+                 # initial_cond = ... # Need C(t=0)
+                 # times = torch.cat([torch.tensor([0.0], device=DEVICE), times])
+                 # targets = torch.cat([initial_cond.unsqueeze(1), targets], dim=1) # Add target at t=0
+                 # mask = torch.cat([torch.ones_like(initial_cond.unsqueeze(1), dtype=torch.bool), mask], dim=1) # Add mask
+                 # For simplicity, skip experiment if times don't start near 0
+                 print(f"Skipping experiment {exp_data['exp_id']} due to time issue.")
+                 continue
+
+
+            try:
+                # Forward pass
+                predictions = model(initial_cond, times, conditions) # Shape (1, n_times, n_species)
+
+                # Calculate loss for this single experiment
+                loss_exp, loss_data_exp = calculate_loss(predictions, targets, mask, model)
+
+                # Accumulate loss (average over samples in batch later)
+                batch_loss_total += loss_exp
+                batch_loss_data += loss_data_exp
+
+            except Exception as e:
+                print(f"\nError during forward/loss calculation for exp {exp_data['exp_id']}: {e}")
+                print("Skipping this experiment for this batch.")
+                # import traceback
+                # traceback.print_exc()
+                n_samples_in_batch -= 1 # Decrement effective batch size
+
+
+        if n_samples_in_batch > 0:
+            # Average loss over the number of successfully processed samples
+            avg_batch_loss = batch_loss_total / n_samples_in_batch
+            avg_data_loss = batch_loss_data / n_samples_in_batch
+
+            # Backward pass and optimization step
+            avg_batch_loss.backward()
+            # Optional: Gradient clipping
+            # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            optimizer.step()
+
+            total_loss_epoch += avg_batch_loss.item() * n_samples_in_batch # Accumulate total loss before averaging
+            total_data_loss_epoch += avg_data_loss.item() * n_samples_in_batch
+
+            # Update progress bar
+            pbar.set_postfix({
+                'Batch Loss': f"{avg_batch_loss.item():.4f}",
+                'Data Loss': f"{avg_data_loss.item():.4f}"
+            })
+        else:
+            print("Warning: No samples successfully processed in this batch.")
+
+
+    avg_loss_epoch = total_loss_epoch / len(dataloader.dataset) if len(dataloader.dataset) > 0 else 0
+    avg_data_loss_epoch = total_data_loss_epoch / len(dataloader.dataset) if len(dataloader.dataset) > 0 else 0
+    epoch_time = time.time() - start_time
+
+    pbar.close() # Close the tqdm progress bar for the epoch
+    print(f"Epoch {epoch+1}/{N_EPOCHS} | Avg Train Loss: {avg_loss_epoch:.6f} | Avg Data Loss: {avg_data_loss_epoch:.6f} | Time: {epoch_time:.2f}s")
+
+    return avg_loss_epoch
+
+
+def evaluate(model, dataloader, epoch, plot_n_examples=5):
+    """Evaluates the model on the validation set and generates plots."""
+    model.eval()
+    total_val_loss = 0.0
+    total_val_data_loss = 0.0
+    n_plotted = 0
+
+    print(f"\n--- Evaluating Epoch {epoch+1} ---")
+    val_start_time = time.time()
+
+    with torch.no_grad():
+      pbar = tqdm(dataloader, desc=f"Epoch {epoch+1}/{N_EPOCHS} [Validation]", leave=False)
+      for i, batch in enumerate(pbar):
+            batch_loss_total = torch.tensor(0.0, device=DEVICE)
+            batch_loss_data = torch.tensor(0.0, device=DEVICE)
+            n_samples_in_batch = len(batch)
+
+            for exp_data in batch:
+                initial_cond = exp_data['initial_conditions'].unsqueeze(0)
+                times = exp_data['times']
+                conditions = exp_data['conditions'].unsqueeze(0)
+                targets = exp_data['species_norm'].unsqueeze(0)
+                mask = exp_data['mask'].unsqueeze(0)
+                exp_id = exp_data['exp_id']
+
+                # Skip if time issue persists (should be caught in training too)
+                if times[0] != 0: continue
+
+                try:
+                    predictions = model(initial_cond, times, conditions)
+                    loss_exp, loss_data_exp = calculate_loss(predictions, targets, mask, model)
+
+                    batch_loss_total += loss_exp
+                    batch_loss_data += loss_data_exp
+
+                    # --- Plotting ---
+                    if n_plotted < plot_n_examples:
+                        # Denormalize for plotting
+                        pred_np = denormalize_species(predictions.squeeze(0)) # Remove batch dim
+                        true_np = denormalize_species(targets.squeeze(0)) # Remove batch dim
+                        times_np = times.cpu().numpy()
+
+                        # Get denormalized conditions for plot title
+                        conditions_denorm_tensor = denormalize_conditions(conditions)
+                        conditions_denorm_dict = {
+                            name: val.item() for name, val in zip(dataloader.dataset.experiments[0]['conditions'].cpu().numpy(), conditions_denorm_tensor.squeeze().cpu().numpy())
+                        }
+                         # Use actual condition names
+                        conditions_denorm_dict_named = {
+                            name: conditions_denorm_tensor.squeeze().cpu().numpy()[i]
+                            for i, name in enumerate(dataloader.dataset.experiments[0]['conditions'].keys()) # Assuming first exp has keys representative
+                        } if hasattr(dataloader.dataset.experiments[0]['conditions'], 'keys') else \
+                        { f"Cond_{i}": val.item() for i, val in enumerate(conditions_denorm_tensor.squeeze().cpu().numpy())} # Fallback naming
+
+
+                        plot_predictions(exp_id, times_np, true_np, pred_np, conditions_denorm_dict_named)
+                        n_plotted += 1
+
+                except Exception as e:
+                    print(f"\nError during validation/plotting for exp {exp_id}: {e}")
+                    n_samples_in_batch -= 1
+
+
+            if n_samples_in_batch > 0:
+                avg_batch_loss = batch_loss_total / n_samples_in_batch
+                avg_data_loss = batch_loss_data / n_samples_in_batch
+                total_val_loss += avg_batch_loss.item() * n_samples_in_batch
+                total_val_data_loss += avg_data_loss.item() * n_samples_in_batch
+                pbar.set_postfix({
+                    'Val Loss': f"{avg_batch_loss.item():.4f}",
+                    'Data Loss': f"{avg_data_loss.item():.4f}"
+                 })
+            else:
+                 print("Warning: No samples successfully evaluated in this validation batch.")
+
+
+    avg_val_loss = total_val_loss / len(dataloader.dataset) if len(dataloader.dataset) > 0 else 0
+    avg_val_data_loss = total_val_data_loss / len(dataloader.dataset) if len(dataloader.dataset) > 0 else 0
+    val_time = time.time() - val_start_time
+    pbar.close()
+    print(f"Epoch {epoch+1}/{N_EPOCHS} | Avg Valid Loss: {avg_val_loss:.6f} | Avg Valid Data Loss: {avg_val_data_loss:.6f} | Eval Time: {val_time:.2f}s")
+    print(f"--- Evaluation Finished ---")
+
+    return avg_val_loss
+
+
+def run_training_pipeline(data_path, model_load_path=None):
+    """Main function to orchestrate the training and evaluation pipeline."""
+
+    print(f"Starting training pipeline using device: {DEVICE}")
+    print(f"Normalization enabled: {USE_NORMALIZATION}")
+
+    # --- Data Loading ---
+    # Split data into train/validation (e.g., 80/20 split by experiment ID)
+    # This is simplified: loading all data for both train/val
+    # TODO: Implement proper train/val split based on experiment IDs
+    print("Loading training data...")
+    train_loader = get_dataloader(data_path=data_path, shuffle=True)
+    print("Loading validation data...")
+    val_loader = get_dataloader(data_path=data_path, shuffle=False) # No shuffle for validation
+
+    if not train_loader.dataset.experiments or not val_loader.dataset.experiments:
+         print("Failed to load data. Exiting.")
+         return
+
+    # --- Model Initialization ---
+    ode_options = {'rtol': ODE_TOLERANCE, 'atol': ODE_TOLERANCE} # Set solver tolerances
+    model = Transesterformer(
+        n_conditions=len(train_loader.dataset.experiments[0]['conditions']), # Get n_conditions from data
+        ode_solver=ODE_SOLVER,
+        ode_options=ode_options
+    ).to(DEVICE)
+
+    # --- Optimizer ---
+    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+
+    # --- Load Checkpoint (if specified) ---
+    start_epoch = 0
+    best_val_loss = float('inf')
+    if model_load_path and os.path.exists(model_load_path):
+        print(f"Loading model from checkpoint: {model_load_path}")
+        start_epoch, best_val_loss = load_checkpoint(model, optimizer, model_load_path, DEVICE)
+        print(f"Resuming training from epoch {start_epoch}")
+    else:
+        print("Starting training from scratch.")
+
+
+    # --- Training Loop ---
+    print("\n--- Starting Training ---")
+    for epoch in range(start_epoch, N_EPOCHS):
+        train_loss = train_epoch(model, train_loader, optimizer, epoch)
+        val_loss = evaluate(model, val_loader, epoch, plot_n_examples=5) # Plot 5 examples
+
+        # --- Save Model Checkpoint ---
+        is_best = val_loss < best_val_loss
+        if is_best:
+            best_val_loss = val_loss
+            save_path = os.path.join(MODEL_SAVE_DIR, "best_model.pth")
+            save_checkpoint(model, optimizer, epoch, val_loss, save_path)
+            print(f"*** New best model saved with validation loss: {best_val_loss:.6f} ***")
+
+        if (epoch + 1) % SAVE_FREQ == 0:
+            save_path = os.path.join(MODEL_SAVE_DIR, f"checkpoint_epoch_{epoch+1}.pth")
+            save_checkpoint(model, optimizer, epoch, val_loss, save_path)
+
+    print("\n--- Training Finished ---")
+    print(f"Best validation loss achieved: {best_val_loss:.6f}")
+
+
+
+========== FILE: src/utils.py ==========
+# src/utils.py
+"""
+Utility functions for data processing, normalization, plotting, and saving.
+"""
+import torch
+import numpy as np
+import matplotlib.pyplot as plt
+import os
+import pandas as pd
+from .constants import (
+    SPECIES, SPECIES_MAP, N_SPECIES, MW_OIL, MW_MEOH, MW_FAME, MW_GLY,
+    CONDITION_COLS, SPECIES_COLS, TIME_COL, EXP_ID_COL,
+    CONDITION_MEANS, CONDITION_STDS, SPECIES_MEANS, SPECIES_STDS, USE_NORMALIZATION,
+    FIGURE_SAVE_DIR, MODEL_SAVE_DIR
+)
+
+def normalize_conditions(conditions_df):
+    """Normalizes condition variables using pre-defined means and stds."""
+    if not USE_NORMALIZATION:
+        return torch.tensor(conditions_df[CONDITION_COLS].values, dtype=torch.float32)
+
+    conditions_tensor = torch.tensor(conditions_df[CONDITION_COLS].values, dtype=torch.float32)
+    # Ensure means and stds are tensors on the correct device
+    means = CONDITION_MEANS.to(conditions_tensor.device)
+    stds = CONDITION_STDS.to(conditions_tensor.device)
+    # Add small epsilon to stds to prevent division by zero
+    normalized_conditions = (conditions_tensor - means) / (stds + 1e-8)
+    return normalized_conditions
+
+def denormalize_conditions(normalized_conditions_tensor):
+    """Denormalizes condition variables."""
+    if not USE_NORMALIZATION:
+        return normalized_conditions_tensor
+
+    # Ensure means and stds are tensors on the correct device
+    means = CONDITION_MEANS.to(normalized_conditions_tensor.device)
+    stds = CONDITION_STDS.to(normalized_conditions_tensor.device)
+    conditions = normalized_conditions_tensor * (stds + 1e-8) + means
+    return conditions
+
+def normalize_species(species_df):
+    """Normalizes species concentrations using pre-defined means and stds."""
+    if not USE_NORMALIZATION:
+        return torch.tensor(species_df[SPECIES_COLS].values, dtype=torch.float32)
+
+    species_tensor = torch.tensor(species_df[SPECIES_COLS].values, dtype=torch.float32)
+    means = SPECIES_MEANS.to(species_tensor.device)
+    stds = SPECIES_STDS.to(species_tensor.device)
+    normalized_species = (species_tensor - means) / (stds + 1e-8)
+    return normalized_species
+
+def denormalize_species(normalized_species_tensor):
+    """Denormalizes species concentrations."""
+    if not USE_NORMALIZATION:
+        return normalized_species_tensor.cpu().numpy() # Return numpy array for plotting
+
+    # Ensure tensor is on CPU for numpy conversion if needed
+    normalized_species_tensor = normalized_species_tensor.cpu()
+    means = SPECIES_MEANS.cpu()
+    stds = SPECIES_STDS.cpu()
+    species = normalized_species_tensor * (stds + 1e-8) + means
+    return species.numpy()
+
+def calculate_initial_moles(oil_mass_g, methanol_oil_ratio, density_oil=0.92, density_methanol=0.79):
+    """
+    Calculates initial moles of TG and Methanol based on oil mass and ratio.
+    Assumes oil mass is given, calculates volume, then moles.
+    Args:
+        oil_mass_g (float): Initial mass of oil in grams.
+        methanol_oil_ratio (float): Molar ratio of methanol to oil (TG).
+        density_oil (float): Density of oil (g/mL).
+        density_methanol (float): Density of methanol (g/mL).
+
+    Returns:
+        tuple: (initial_moles_tg, initial_moles_methanol, total_volume_L)
+               Returns NaNs if inputs are invalid.
+    """
+    if oil_mass_g <= 0 or methanol_oil_ratio <= 0:
+        return np.nan, np.nan, np.nan
+
+    moles_tg = oil_mass_g / MW_OIL
+    moles_methanol = moles_tg * methanol_oil_ratio
+
+    volume_oil_mL = oil_mass_g / density_oil
+    mass_methanol_g = moles_methanol * MW_MEOH
+    volume_methanol_mL = mass_methanol_g / density_methanol
+
+    total_volume_L = (volume_oil_mL + volume_methanol_mL) / 1000.0
+
+    if total_volume_L <= 0:
+         return np.nan, np.nan, np.nan
+
+    return moles_tg, moles_methanol, total_volume_L
+
+def convert_mass_fraction_to_molar(df, initial_oil_mass_g, density_oil=0.92, density_methanol=0.79):
+    """
+    Converts mass fractions (%) in a DataFrame to molar concentrations (mol/L).
+    Requires initial oil mass and methanol:oil ratio to estimate total volume.
+    Assumes the 'methanol_oil_ratio' column exists in the df for the first time point.
+    Adds molar concentration columns to the DataFrame.
+
+    Args:
+        df (pd.DataFrame): DataFrame with mass fraction columns (TG, DG, MG, FAME, Gly)
+                           and condition columns including 'methanol_oil_ratio'.
+        initial_oil_mass_g (float): The initial mass of oil used for this experiment (e.g., 100g).
+                                    This might need to be added based on experiment_id.
+                                    *** This is a simplification - real volume changes! ***
+        density_oil (float): Density of oil (g/mL).
+        density_methanol (float): Density of methanol (g/mL).
+
+    Returns:
+        pd.DataFrame: DataFrame with added molar concentration columns.
+                      Returns original df if conversion fails.
+    """
+    # Estimate initial moles and volume using the first time point's ratio
+    if df.empty or 'methanol_oil_ratio' not in df.columns:
+        print("Warning: Missing 'methanol_oil_ratio' or empty dataframe, cannot convert units.")
+        return df
+
+    initial_ratio = df['methanol_oil_ratio'].iloc[0]
+    moles_tg_init, moles_meoh_init, total_vol_L = calculate_initial_moles(
+        initial_oil_mass_g, initial_ratio, density_oil, density_methanol
+    )
+
+    if pd.isna(total_vol_L) or total_vol_L <= 0:
+        print(f"Warning: Could not calculate initial volume for experiment. Skipping unit conversion.")
+        # Add NaN columns so downstream code doesn't break
+        for species in SPECIES:
+             if species not in df.columns: # Avoid overwriting if already molar
+                 df[species] = np.nan
+        return df
+
+    # Assume total mass is roughly conserved (approximation!)
+    # Use initial oil mass as reference total mass for % calculation
+    total_mass_ref = initial_oil_mass_g # Simplification
+
+    # Molecular weights dictionary
+    mw = {'TG': MW_OIL, 'DG': MW_OIL - MW_FAME + MW_MEOH, # Approx DG/MG MWs
+          'MG': MW_OIL - 2*MW_FAME + 2*MW_MEOH,
+          'FAME': MW_FAME, 'Gly': MW_GLY, 'MeOH': MW_MEOH}
+
+    for species in SPECIES:
+        if species in df.columns and species != 'MeOH': # Convert species if column exists
+             # Check if data is likely percentage (0-100 range)
+             is_percent = df[species].max() <= 100.1 and df[species].min() >= -0.1
+
+             if is_percent:
+                 mass_species_g = (df[species] / 100.0) * total_mass_ref
+                 moles_species = mass_species_g / mw[species]
+                 df[species] = moles_species / total_vol_L # Overwrite with mol/L
+             # Else: Assume it's already in mol/L or other unit, leave as is
+             # More robust checking could be added here
+
+    # Estimate Methanol concentration (difficult, often not measured directly)
+    # We can estimate consumption based on FAME produced
+    if 'FAME' in df.columns and 'MeOH' not in df.columns:
+        initial_meoh_conc = moles_meoh_init / total_vol_L
+        # FAME production consumes MeOH stoichiometrically (3 FAME per TG -> 3 MeOH)
+        # More accurately: 1 FAME produced consumes 1 MeOH in each step
+        moles_fame_produced = df['FAME'] * total_vol_L # FAME conc * vol
+        moles_meoh_consumed = moles_fame_produced # Approximation: 1:1 mole consumption per FAME
+        current_moles_meoh = moles_meoh_init - moles_meoh_consumed
+        df['MeOH'] = np.maximum(0, current_moles_meoh / total_vol_L) # Ensure non-negative
+
+    elif 'MeOH' not in df.columns: # If FAME also not present, fill with NaN
+        df['MeOH'] = np.nan
+
+    return df
+
+
+def plot_predictions(exp_id, times, true_species, pred_species, conditions):
+    """
+    Plots the predicted vs true species concentrations for a single experiment.
+
+    Args:
+        exp_id (str): Identifier for the experiment.
+        times (np.ndarray): Time points.
+        true_species (np.ndarray): Ground truth species concentrations (n_times, n_species).
+        pred_species (np.ndarray): Predicted species concentrations (n_times, n_species).
+        conditions (pd.Series or dict): Experimental conditions for labeling plot.
+    """
+    n_species = true_species.shape[1]
+    if n_species != len(SPECIES):
+         print(f"Warning: Mismatch in species count for plotting {exp_id}. Expected {len(SPECIES)}, got {n_species}")
+         # Try plotting based on available columns if possible
+         plot_species_indices = range(min(n_species, len(SPECIES)))
+         plot_species_names = SPECIES[:min(n_species, len(SPECIES))]
+    else:
+         plot_species_indices = range(n_species)
+         plot_species_names = SPECIES
+
+    if len(plot_species_names) == 0:
+        print(f"Error: No species to plot for {exp_id}")
+        return
+
+    n_rows = int(np.ceil(len(plot_species_names) / 3))
+    fig, axes = plt.subplots(n_rows, 3, figsize=(15, n_rows * 4), sharex=True)
+    axes = axes.flatten() # Flatten to easily iterate
+
+    condition_str = ", ".join([f"{k}={v:.2f}" for k, v in conditions.items()])
+    fig.suptitle(f"Experiment: {exp_id}\nConditions: {condition_str}", fontsize=14)
+
+    for i, species_idx in enumerate(plot_species_indices):
+        species_name = plot_species_names[i]
+        ax = axes[i]
+        ax.plot(times, true_species[:, species_idx], 'o-', label=f'True {species_name}', markersize=4)
+        ax.plot(times, pred_species[:, species_idx], 'x--', label=f'Predicted {species_name}', markersize=4)
+        ax.set_ylabel("Concentration (mol/L)") # Assumes molar units after processing
+        ax.set_title(species_name)
+        ax.legend()
+        ax.grid(True, linestyle='--', alpha=0.6)
+
+    # Add x-axis label to the bottom plots
+    for i in range(len(plot_species_names), len(axes)):
+         axes[i].set_xlabel("Time (hours)") # Assumes hours
+         axes[i].axis('off') # Hide unused subplots
+
+    # Ensure bottom axes have x-label if they are used
+    used_axes_indices = np.arange(len(plot_species_names))
+    bottom_row_start_index = (n_rows - 1) * 3
+    for i in used_axes_indices:
+        if i >= bottom_row_start_index:
+             axes[i].set_xlabel("Time (hours)") # Assumes hours
+
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Adjust layout to prevent title overlap
+
+    # Save the figure
+    if not os.path.exists(FIGURE_SAVE_DIR):
+        os.makedirs(FIGURE_SAVE_DIR)
+    filename = f"prediction_{exp_id}.png".replace(" ", "_").replace("/", "_") # Sanitize filename
+    filepath = os.path.join(FIGURE_SAVE_DIR, filename)
+    try:
+        plt.savefig(filepath)
+        print(f"Saved prediction plot to {filepath}")
+    except Exception as e:
+        print(f"Error saving plot {filepath}: {e}")
+    plt.close(fig) # Close the figure to free memory
+
+
+def save_checkpoint(model, optimizer, epoch, loss, filepath):
+    """Saves model checkpoint."""
+    if not os.path.exists(os.path.dirname(filepath)):
+        os.makedirs(os.path.dirname(filepath))
+    torch.save({
+        'epoch': epoch,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'loss': loss,
+    }, filepath)
+    print(f"Model checkpoint saved to {filepath}")
+
+def load_checkpoint(model, optimizer, filepath, device):
+    """Loads model checkpoint."""
+    if not os.path.exists(filepath):
+        print(f"Checkpoint file not found: {filepath}")
+        return 0, float('inf') # Start from epoch 0, infinite loss
+
+    checkpoint = torch.load(filepath, map_location=device)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    epoch = checkpoint['epoch']
+    loss = checkpoint['loss']
+    print(f"Loaded checkpoint from {filepath} (Epoch {epoch}, Loss {loss:.4f})")
+    return epoch + 1, loss # Return next epoch to start from
+
+
+
+========== FILE: src/data_loader.py ==========
+# src/data_loader.py
+"""
+Handles loading, preprocessing, and batching of the kinetic data.
+"""
+import pandas as pd
+import torch
+from torch.utils.data import Dataset, DataLoader
+import numpy as np
+from .constants import (
+    DATA_PATH, TIME_COL, EXP_ID_COL, CONDITION_COLS, SPECIES_COLS, N_SPECIES,
+    DEVICE, BATCH_SIZE, USE_NORMALIZATION
+)
+from .utils import (
+    normalize_conditions, normalize_species, convert_mass_fraction_to_molar
+)
+
+class BiodieselKineticsDataset(Dataset):
+    """
+    PyTorch Dataset class for loading and serving biodiesel kinetic data.
+    Each item corresponds to a single experiment's time series.
+    """
+    def __init__(self, data_path=DATA_PATH, device=DEVICE):
+        self.data_path = data_path
+        self.device = device
+        self.experiments = self._load_and_process_data()
+
+        if not self.experiments:
+            raise ValueError("No valid experiments loaded. Check data path and format.")
+
+        # Calculate normalization stats if needed (and not predefined)
+        # This is simplified; ideally done only on training split
+        self._calculate_normalization_stats()
+
+
+    def _load_and_process_data(self):
+        """Loads data from CSV, processes it, and groups by experiment."""
+        try:
+            df = pd.read_csv(self.data_path)
+            print(f"Loaded data with columns: {df.columns.tolist()}")
+        except FileNotFoundError:
+            print(f"Error: Data file not found at {self.data_path}")
+            return []
+        except Exception as e:
+            print(f"Error loading data: {e}")
+            return []
+
+        # --- Data Cleaning & Preprocessing ---
+        # 1. Handle Missing Values (Example: forward fill within experiment, then drop if still NaN)
+        df = df.sort_values(by=[EXP_ID_COL, TIME_COL])
+        # Check for essential columns
+        required_cols = [EXP_ID_COL, TIME_COL] + CONDITION_COLS + SPECIES_COLS
+        missing_req_cols = [col for col in required_cols if col not in df.columns and col not in SPECIES_COLS] # Allow missing species initially
+        if missing_req_cols:
+             print(f"Error: Missing required columns: {missing_req_cols}")
+             # Attempt to continue if only optional conditions are missing
+             if any(c in CONDITION_COLS for c in missing_req_cols):
+                 print("Warning: Missing some condition columns. Will fill with NaN.")
+                 for col in missing_req_cols:
+                     if col in CONDITION_COLS: df[col] = np.nan
+             else: # If essential ID/Time or mandatory conditions missing
+                 return []
+
+
+        # Fill missing conditions with mean or 0 (or handle more sophisticatedly)
+        for col in CONDITION_COLS:
+            if col in df.columns:
+                if df[col].isnull().any():
+                    fill_value = df[col].mean() if df[col].notna().any() else 0
+                    print(f"Warning: Filling NaNs in condition '{col}' with {fill_value:.2f}")
+                    df[col].fillna(fill_value, inplace=True)
+            else:
+                print(f"Warning: Condition column '{col}' not found. Creating with NaNs.")
+                df[col] = np.nan # Create if missing, fill later if needed
+
+
+        # 2. Unit Conversion (Example: Convert mass % to mol/L if needed)
+        # This requires knowledge of initial conditions (e.g., initial oil mass)
+        # Placeholder: Assume data is ALREADY in mol/L or skip conversion
+        # If you need conversion, implement logic here, potentially grouping by experiment
+        # Example call (requires 'initial_oil_mass_g' potentially mapped from exp_id):
+        # df = df.groupby(EXP_ID_COL).apply(
+        #      lambda x: convert_mass_fraction_to_molar(x, initial_oil_mass_g=100.0) # Adjust mass
+        # ).reset_index(drop=True)
+        print("Skipping unit conversion. Assuming data is in molar units (mol/L).")
+        # Ensure all target species columns exist, fill with NaN if missing
+        for col in SPECIES_COLS:
+            if col not in df.columns:
+                print(f"Warning: Species column '{col}' not found. Creating with NaNs.")
+                df[col] = np.nan
+
+        # 3. Handle missing species data (critical!)
+        # Option 1: Drop experiments with any NaN in species after potential ffill
+        # Option 2: Impute (less ideal for time series)
+        # Option 3: Mask loss for NaN values during training
+        # Here, we'll use Option 3 (masking) - requires handling in training loop
+        # Check for NaNs *before* normalization
+        nan_counts = df[SPECIES_COLS].isnull().sum()
+        if nan_counts.sum() > 0:
+            print(f"Warning: Found NaNs in species columns:\n{nan_counts[nan_counts > 0]}")
+            print("These time points will be masked during loss calculation.")
+
+
+        # --- Group by Experiment ---
+        grouped = df.groupby(EXP_ID_COL)
+        experiments = []
+        print(f"Processing {len(grouped)} unique experiments...")
+
+        for exp_id, group in grouped:
+            if len(group) < 2: # Need at least two time points for ODE
+                print(f"Skipping experiment {exp_id}: only {len(group)} time point(s).")
+                continue
+
+            # Ensure time is sorted
+            group = group.sort_values(by=TIME_COL)
+
+            times = torch.tensor(group[TIME_COL].values, dtype=torch.float32, device=self.device)
+            # Extract conditions (use first row's conditions for the whole experiment)
+            conditions_df = group.iloc[[0]] # Get first row as DataFrame
+            conditions = normalize_conditions(conditions_df) if USE_NORMALIZATION else torch.tensor(conditions_df[CONDITION_COLS].values, dtype=torch.float32)
+
+
+            # Extract species concentrations and handle potential NaNs
+            species_raw = group[SPECIES_COLS].values
+            species_mask = ~np.isnan(species_raw) # True where data is valid
+            species_filled = np.nan_to_num(species_raw, nan=0.0) # Replace NaN with 0 for tensor creation
+
+            species = normalize_species(pd.DataFrame(species_filled, columns=SPECIES_COLS)) if USE_NORMALIZATION else torch.tensor(species_filled, dtype=torch.float32)
+            mask_tensor = torch.tensor(species_mask, dtype=torch.bool, device=self.device)
+
+
+            # Check shapes
+            if species.shape[1] != N_SPECIES:
+                 print(f"Error: Experiment {exp_id} has incorrect species dimension: {species.shape[1]}, expected {N_SPECIES}")
+                 continue
+            if conditions.shape[1] != len(CONDITION_COLS):
+                 print(f"Error: Experiment {exp_id} has incorrect condition dimension: {conditions.shape[1]}, expected {len(CONDITION_COLS)}")
+                 continue
+
+
+            # Store initial condition separately
+            initial_conditions = species[0, :].clone().detach().to(self.device) # Normalized or raw C(t=0)
+
+            experiments.append({
+                'exp_id': exp_id,
+                'times': times.to(self.device),             # Time points (vector)
+                'conditions': conditions.squeeze(0).to(self.device), # Conditions (vector)
+                'species_raw': torch.tensor(species_raw, dtype=torch.float32, device=self.device), # Raw data with NaNs
+                'species_norm': species.to(self.device),    # Normalized/raw data (tensor, NaNs filled with 0)
+                'initial_conditions': initial_conditions, # C(t=0)
+                'mask': mask_tensor.to(self.device)         # Mask for valid data points
+            })
+
+        print(f"Successfully processed {len(experiments)} experiments.")
+        return experiments
+
+    def _calculate_normalization_stats(self):
+      """Calculates and updates normalization constants if USE_NORMALIZATION is True."""
+      if not USE_NORMALIZATION:
+          print("Normalization disabled.")
+          return
+
+      all_conditions = []
+      all_species = []
+      for exp in self.experiments:
+          # Denormalize first if they were already normalized with placeholders
+          cond_numpy = denormalize_conditions(exp['conditions'].unsqueeze(0)).cpu().numpy()
+          spec_numpy = denormalize_species(exp['species_norm']).cpu().numpy() # Denormalize filled data
+
+          # Use the mask to only consider valid data points for stats
+          valid_spec_numpy = spec_numpy[exp['mask'].cpu().numpy()]
+          # Reshape needed if mask is applied per element
+          if valid_spec_numpy.size == exp['mask'].sum().item() * N_SPECIES:
+               valid_spec_numpy = valid_spec_numpy.reshape(-1, N_SPECIES)
+          else: # Fallback if reshape fails (e.g. all NaNs in a row)
+               valid_spec_numpy = spec_numpy[exp['mask'].all(axis=1).cpu().numpy()] # Use only rows with all valid data
+
+
+          all_conditions.append(cond_numpy)
+          if valid_spec_numpy.shape[0] > 0: # Only append if valid species data exists
+              all_species.append(valid_spec_numpy)
+
+      if not all_conditions or not all_species:
+          print("Warning: Not enough valid data to calculate normalization statistics.")
+          # Keep predefined constants or disable normalization
+          # global USE_NORMALIZATION # Commented out: Avoid modifying global constants directly
+          # USE_NORMALIZATION = False
+          print("Keeping predefined normalization constants or disabling normalization.")
+          return
+
+      conditions_all_np = np.concatenate(all_conditions, axis=0)
+      species_all_np = np.concatenate(all_species, axis=0)
+
+      # Calculate means and stds
+      cond_means = np.nanmean(conditions_all_np, axis=0)
+      cond_stds = np.nanstd(conditions_all_np, axis=0)
+      spec_means = np.nanmean(species_all_np, axis=0)
+      spec_stds = np.nanstd(species_all_np, axis=0)
+
+      # Handle zero std deviation (replace with 1 or small epsilon)
+      cond_stds[cond_stds < 1e-8] = 1.0
+      spec_stds[spec_stds < 1e-8] = 1.0
+
+      # Update constants (This is generally bad practice to modify imported constants,
+      # better to pass them around or use a config object. Doing it here for simplicity.)
+      global CONDITION_MEANS, CONDITION_STDS, SPECIES_MEANS, SPECIES_STDS
+      CONDITION_MEANS = torch.tensor(cond_means, dtype=torch.float32, device=self.device)
+      CONDITION_STDS = torch.tensor(cond_stds, dtype=torch.float32, device=self.device)
+      SPECIES_MEANS = torch.tensor(spec_means, dtype=torch.float32, device=self.device)
+      SPECIES_STDS = torch.tensor(spec_stds, dtype=torch.float32, device=self.device)
+
+      print("Updated normalization constants based on loaded data:")
+      print("Condition Means:", CONDITION_MEANS.cpu().numpy())
+      print("Condition Stds:", CONDITION_STDS.cpu().numpy())
+      print("Species Means:", SPECIES_MEANS.cpu().numpy())
+      print("Species Stds:", SPECIES_STDS.cpu().numpy())
+
+      # Re-normalize the data in self.experiments with the calculated stats
+      print("Re-normalizing loaded experiment data...")
+      for i in range(len(self.experiments)):
+          exp_data = self.experiments[i]
+          # Conditions (use the raw conditions stored before initial normalization)
+          raw_cond_df = pd.DataFrame([denormalize_conditions(exp_data['conditions'].unsqueeze(0)).cpu().numpy().squeeze()], columns=CONDITION_COLS)
+          self.experiments[i]['conditions'] = normalize_conditions(raw_cond_df).squeeze(0).to(self.device)
+
+          # Species (use the raw species data before initial normalization)
+          raw_spec_df = pd.DataFrame(exp_data['species_raw'].cpu().numpy(), columns=SPECIES_COLS)
+          species_filled = np.nan_to_num(raw_spec_df.values, nan=0.0)
+          self.experiments[i]['species_norm'] = normalize_species(pd.DataFrame(species_filled, columns=SPECIES_COLS)).to(self.device)
+
+          # Update initial conditions as well
+          self.experiments[i]['initial_conditions'] = self.experiments[i]['species_norm'][0, :].clone().detach().to(self.device)
+      print("Re-normalization complete.")
+
+
+    def __len__(self):
+        return len(self.experiments)
+
+    def __getitem__(self, idx):
+        return self.experiments[idx]
+
+def get_dataloader(data_path=DATA_PATH, batch_size=BATCH_SIZE, shuffle=True, device=DEVICE):
+    """Creates and returns a DataLoader."""
+    dataset = BiodieselKineticsDataset(data_path=data_path, device=device)
+    # Collate function to handle variable length sequences if needed (not strictly necessary here)
+    # DataLoader will automatically stack tensors if they have the same size,
+    # but experiments have different numbers of time points.
+    # We process experiments individually in the training loop, so standard loader is fine.
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=lambda x: x) # Return list of dicts
+    return dataloader
+
+if __name__ == '__main__':
+    # Example usage: Load data and print info about the first batch
+    print(f"Loading data using device: {DEVICE}")
+    dataloader = get_dataloader(batch_size=4, shuffle=False)
+    print(f"DataLoader created. Number of experiments: {len(dataloader.dataset)}")
+
+    first_batch = next(iter(dataloader))
+    print(f"\nFirst batch contains {len(first_batch)} experiments.")
+
+    if first_batch:
+        first_exp = first_batch[0]
+        print("\nDetails of the first experiment in the batch:")
+        print(f"  Experiment ID: {first_exp['exp_id']}")
+        print(f"  Number of time points: {len(first_exp['times'])}")
+        print(f"  Times shape: {first_exp['times'].shape}")
+        print(f"  Conditions shape: {first_exp['conditions'].shape}")
+        print(f"  Conditions (normalized): {first_exp['conditions']}")
+        print(f"  Initial Conditions (normalized): {first_exp['initial_conditions']}")
+        print(f"  Species Norm shape: {first_exp['species_norm'].shape}")
+        print(f"  Mask shape: {first_exp['mask'].shape}")
+        print(f"  Number of valid data points: {first_exp['mask'].sum().item()}")
+
+        # Denormalize conditions and species for inspection
+        if USE_NORMALIZATION:
+             from .utils import denormalize_conditions, denormalize_species
+             denorm_cond = denormalize_conditions(first_exp['conditions'].unsqueeze(0))
+             denorm_spec_init = denormalize_species(first_exp['initial_conditions'].unsqueeze(0))
+             print(f"  Conditions (denormalized): {denorm_cond.cpu().numpy().squeeze()}")
+             print(f"  Initial Conditions (denormalized): {denorm_spec_init.squeeze()}") # Already numpy
+
+
+========== FILE: src/__pycache__/train.cpython-312.pyc ==========
+[ERROR READING FILE: 'utf-8' codec can't decode byte 0xcb in position 0: invalid continuation byte]
+
+========== FILE: src/__pycache__/data_loader.cpython-312.pyc ==========
+[ERROR READING FILE: 'utf-8' codec can't decode byte 0xcb in position 0: invalid continuation byte]
+
+========== FILE: src/__pycache__/utils.cpython-312.pyc ==========
+[ERROR READING FILE: 'utf-8' codec can't decode byte 0xcb in position 0: invalid continuation byte]
+
+========== FILE: src/__pycache__/constants.cpython-312.pyc ==========
+[ERROR READING FILE: 'utf-8' codec can't decode byte 0xcb in position 0: invalid continuation byte]
+
+========== FILE: src/__pycache__/model.cpython-312.pyc ==========
+[ERROR READING FILE: 'utf-8' codec can't decode byte 0xcb in position 0: invalid continuation byte]
