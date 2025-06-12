@@ -1,5 +1,10 @@
-# Biodiesel Reactor
-MIT THINK submission by Piyush Acharya and Aarnav Bhat
+# BioCycle Reactor
+
+Award-winning biodiesel reactor designed by Piyush Acharya and Aarnav Bhat.
+
+Recipient of the 8th Annual New York Institute of Technology Mini-Research Grant Award.
+
+This project optimizes the biodiesel transesterification process, aiming for efficient, sustainable biofuel production.
 
 Diagrams:
 
